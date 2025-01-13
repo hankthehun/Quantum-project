@@ -1,0 +1,104 @@
+Alaska, 1, North America, 0.075, 0.1
+Greenland, 1, North America, 0.33, 0.075
+Canada, 1, North America, 0.18, 0.15
+Eastern USA, 1, North America, 0.14, 0.24
+Western USA, 1, North America, 0.23, 0.25
+Mexico, 1, North America, 0.16, 0.32
+Argentina, 1, South America, 0.25, 0.57
+Brazil, 1, South America, 0.3, 0.44
+Peru, 1, South America, 0.21, 0.46
+Venezuela, 1, South America, 0.23, 0.38
+Congo, 1, Africa, 0.52, 0.5
+East Africa, 1, Africa, 0.59, 0.47
+North Africa, 1, Africa, 0.48, 0.41
+South Africa, 1, Africa, 0.54, 0.61
+Madagascar, 1, Africa, 0.63, 0.6
+British Isles, 1, Europe, 0.4, 0.17
+Scandinavia, 1, Europe, 0.49, 0.12
+Southern Europe, 1, Europe, 0.46, 0.3
+Central Europe, 1, Europe, 0.46, 0.24
+Eastern Europe, 1, Europe, 0.54, 0.24
+Russia, 1, Europe, 0.62, 0.16
+South-East Asia, 1, Asia, 0.8, 0.37
+Siberia, 1, Asia, 0.77, 0.09
+China, 1, Asia, 0.78, 0.26
+India, 1, Asia, 0.72, 0.35
+Japan, 1, Asia, 0.93, 0.23
+Middle-East, 1, Asia, 0.6, 0.36
+Central Asia, 1, Asia, 0.7, 0.24
+Australia, 1, Oceania, 0.9, 0.58
+New-Guinea, 1, Oceania, 0.92, 0.46
+Malaysia, 1, Oceania, 0.81, 0.49
+Antartica, 2, Antartica, 0.5, 0.7
+
+
+
+EDGES
+
+Alaska, Canada
+Siberia, Alaska
+Canada, Greenland
+Canada, Eastern USA
+Canada, Western USA
+Western USA, Eastern USA
+Mexico, Eastern USA
+Mexico, Western USA
+Mexico, Venezuela
+Venezuela, Peru
+Venezuela, Brazil
+Brazil, Peru
+Brazil, Argentina
+Argentina, Peru
+Brazil, North Africa
+North Africa, Congo
+North Africa, East Africa
+Congo, East Africa
+East Africa, South Africa
+South Africa, Madagascar
+Madagascar, East Africa
+Congo, South Africa
+North Africa, Southern Europe
+British Isles, Scandinavia
+British Isles, Greenland
+Greenland, Scandinavia
+British Isles, Central Europe
+Central Europe, Scandinavia
+Central Europe, Southern Europe
+Central Europe, Eastern Europe
+Southern Europe, Eastern Europe
+Eastern Europe, Russia
+Scandinavia, Russia
+Russia, Siberia
+Siberia, Japan
+Siberia, China
+Japan, China
+Russia, Central Asia
+Siberia, Central Asia
+China, Central Asia
+Middle-East, Central Asia
+North Africa, Middle-East
+East Africa, Middle-East
+Southern Europe, Middle-East
+China, India
+China, South-East Asia
+India, South-East Asia
+India, Central Asia
+Russia, Middle-East
+South-East Asia, Malaysia
+Malaysia, Australia
+Malaysia, New-Guinea
+New-Guinea, Australia
+Australia, Antartica
+Antartica, Argentina
+Antartica, South Africa
+
+
+CONTINENTS
+
+Antartica, H
+North America, X
+South America, YZ
+Europe, Z
+Africa, XY
+Asia, Y
+Oceania, XZ
