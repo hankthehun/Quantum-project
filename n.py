@@ -5,7 +5,7 @@ R_x(theta) = [[cos(theta/2), -i*sin(theta/2)],[ -i*sin(theta/2), cos(theta/2)]]
 R_y(theta) = [[cos(theta/2), -sin(theta/2)],[sin(theta/2), cos(theta/2)]]
 R_z(theta) = [[e^(-i*theta/2), 0],[0, e^(i*theta/2)]]
 
-#rotations as Matrices
+# more rotations as Matrices
 # Pi/8 around xy-axis
 R_xy = R_z[-pi/4] * R_x[pi/8] * R_z[pi/4]
 # pi/8 around yz-axis
@@ -25,3 +25,5 @@ CR_z = np.tensordot(np.array([[1,0],[0,1]]), R_z[pi/8], axes=0)
 CR_xy = np.tensordot(np.array([[1,0],[0,1]]), R_xy, axes=0)
 # controlled pi/8 rotation around yz axis
 CR_yz = np.tensordot(np.array([[1,0],[0,1]]), R_yz, axes=0)
+# controlled pi/8 rotation around xz axis
+CR_xz = np.tensordot(np.array([[1,0],[0,1]]), R_xz, axes=0)
