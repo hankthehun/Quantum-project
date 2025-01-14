@@ -21,7 +21,7 @@ Eastern Europe, 1, Europe, 0.54, 0.24
 Russia, 1, Europe, 0.62, 0.16
 South-East Asia, 1, Asia, 0.8, 0.37
 Siberia, 1, Asia, 0.77, 0.09
-China, 1, Asia, 0.78, 0.26
+China, 1, Asia, 0.82, 0.26
 India, 1, Asia, 0.72, 0.35
 Japan, 1, Asia, 0.93, 0.23
 Middle-East, 1, Asia, 0.6, 0.36
