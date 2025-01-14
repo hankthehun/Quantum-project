@@ -3,6 +3,7 @@ from qiskit_aer import AerSimulator
 import numpy as np
 
 PI_OVER_8 = np.pi / 8
+PI_OVER_4 = np.pi / 4
 
 class GameCircuit:
     def __init__(self, qubits):
@@ -23,10 +24,19 @@ class GameCircuit:
             self.qc.rz(PI_OVER_8, qubit)
             pass
         elif gate == 'XY':
+            self.qc.rz(PI_OVER_4, qubit)
+            self.qc.rx(PI_OVER_8, qubit)
+            self.qc.rz(-PI_OVER_4, qubit)
             pass
         elif gate == 'YZ':
+            self.qc.rx(PI_OVER_4, qubit)
+            self.qc.ry(PI_OVER_8, qubit)
+            self.qc.rx(-PI_OVER_4, qubit)
             pass
         elif gate == 'XZ':
+            self.qc.ry(PI_OVER_4, qubit)
+            self.qc.rz(PI_OVER_8, qubit)
+            self.qc.ry(-PI_OVER_4, qubit)
             pass
         elif gate == 'H':
             self.qc.h(qubit)
@@ -48,12 +58,20 @@ class GameCircuit:
             self.qc.cy(control, target)
         elif gate == 'Z':
             self.qc.cz(control, target)
-            pass
         elif gate == 'XY':
+            self.qc.crz(PI_OVER_4, control, target)
+            self.qc.crx(PI_OVER_8, control, target)
+            self.qc.crz(-PI_OVER_4, control, target)
             pass
         elif gate == 'YZ':
+            self.qc.crx(PI_OVER_4, control, target)
+            self.qc.cry(PI_OVER_8, control, target)
+            self.qc.crx(-PI_OVER_4, control, target)
             pass
         elif gate == 'XZ':
+            self.qc.cry(PI_OVER_4, control, target)
+            self.qc.crz(PI_OVER_8, control, target)
+            self.qc.cry(-PI_OVER_4, control, target)
             pass
         else:
             print(f"[WARNING] Invalid gate: {gate}")
