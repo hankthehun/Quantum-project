@@ -1,6 +1,7 @@
 import networkx as nx
 import random
 from tkinter import *
+from PIL import Image, ImageTk
 
 COLORS = ["gray", "blue", "red"]
 
@@ -58,6 +59,10 @@ class World:
 		self.canvas = Canvas(self.root, width=size, height=int(size*0.75)) # The canvas
 		self.canvas.pack()
 		self.selection = ""					# The name of the selected country
+
+		image = Image.open("background.png")
+		image.thumbnail((size, int(size * 0.75)), Image.Resampling.LANCZOS)
+		self.background = ImageTk.PhotoImage(image)		# The background
 
 	def get_country(self, name):
 		return self.country_graph.nodes[name]['country']
@@ -119,7 +124,12 @@ class World:
 		else:
 			self.canvas.create_line(x1, y1, x2, y2, fill="gray", width=2, tags=labels)
 
+	def render_background(self):
+		self.canvas.delete("background")
+		self.canvas.create_image(0, 0, anchor="nw", image=self.background, tags="background")
+
 	def render(self):
+		self.render_background()
 		for edge in self.country_graph.edges():
 			self.render_edge(*edge)
 
