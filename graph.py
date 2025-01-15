@@ -68,7 +68,8 @@ class World:
 		self.size = size
 		self.country_graph = country_graph	# The graph connecting all the countries
 		self.continents = continents		# A dict containing all the continents
-		self.root = Tk()					# The tkinter root object
+		self.root = Tk()	# The tkinter root object
+		self.root.title("Quantum Risk")
 		self.canvas = Canvas(self.root, width=size, height=int(size*0.75)) # The canvas
 		self.canvas.pack()
 		self.selection = ""					# The name of the selected country
