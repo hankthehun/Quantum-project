@@ -2,6 +2,7 @@ import networkx as nx
 import random
 from tkinter import *
 from PIL import Image, ImageTk
+import uuid
 
 COLORS = ["gray", "blue", "red"]
 
@@ -47,7 +48,19 @@ class Country:
 		world.canvas.tag_bind(label, "<Button-1>", lambda e: world.select(self.name))
 
 
+class Move:
+	def __init__(self, gate):
+		self.gate = gate
+		self.selected = False
 
+	def render(self, canvas, x, y, click_callback):
+		label = f"move-{str(uuid.uuid4())}"
+		size = 18 if self.selected else 15
+		width = 3 if self.selected else 2
+		canvas.create_rectangle(x - size, y - size, x + size, y + size, outline="black", fill="white", tags=("move", label), width=width)
+		canvas.create_text(x, y, text=f"{self.gate}", font=("Helvetica", 10, "bold"), fill="black", tags=("move", label + "-text"))
+		canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(self))
+		canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(self))
 
 # Class storing all the continents and country graph
 class World:
@@ -59,6 +72,8 @@ class World:
 		self.canvas = Canvas(self.root, width=size, height=int(size*0.75)) # The canvas
 		self.canvas.pack()
 		self.selection = ""					# The name of the selected country
+		self.can_select = False
+		self.selection_player = 0
 
 		image = Image.open("background.png")
 		image.thumbnail((size, int(size * 0.75)), Image.Resampling.LANCZOS)
@@ -103,9 +118,9 @@ class World:
 		return [country for country in self.get_all_countries() if country.is_owned(player)]
 
 	def get_moves(self, player):
-		moves = [self.get_continent(country.continent).gate for country in self.get_all_possessions(player)]
+		gates = [self.get_continent(country.continent).gate for country in self.get_all_possessions(player)]
 		bonus = self.get_all_continental_bonus(player)
-		return moves + bonus
+		return [Move(g) for g in gates + bonus]
 
 	def get_qubit_amount(self):
 		return sum(len(country.qubits) for country in self.get_all_countries())
@@ -119,14 +134,15 @@ class World:
 		for l in labels:
 			self.canvas.delete(l)
 		if abs(x1 - x2) > self.size / 2:
-			self.canvas.create_line(x1, y1, 0, y1, fill="gray", width=2, tags=labels)
-			self.canvas.create_line(self.size, y1, x2, y2, fill="gray", width=2, tags=labels)
+			self.canvas.create_line(x1, y1, 0, y1, fill="black", width=2, tags=labels)
+			self.canvas.create_line(self.size, y1, x2, y2, fill="black", width=2, tags=labels)
 		else:
-			self.canvas.create_line(x1, y1, x2, y2, fill="gray", width=2, tags=labels)
+			self.canvas.create_line(x1, y1, x2, y2, fill="black", width=2, tags=labels)
 
 	def render_background(self):
 		self.canvas.delete("background")
-		self.canvas.create_image(0, 0, anchor="nw", image=self.background, tags="background")
+		bg = self.canvas.create_image(0, 0, anchor="nw", image=self.background, tags="background")
+		self.canvas.tag_lower(bg)
 
 	def render(self):
 		self.render_background()
@@ -135,11 +151,25 @@ class World:
 
 		for country in self.get_all_countries():
 			country.render(self, country.name == self.selection)
-		self.root.mainloop()
+		self.root.update()
 
 	def select(self, country):
-		self.selection = country
-		self.render()
+		if not self.can_select:
+			return
+		if self.get_country(country).is_owned(self.selection_player) or self.selection_player == 0:
+			self.selection = country
+			self.render()
+
+	def get_selected_country(self):
+		if self.selection == "":
+			return None
+		return self.get_country(self.selection)
+
+	def allow_selection(self, can_select, player=0):
+		self.can_select = can_select
+		self.selection_player = player
+		if not can_select:
+			self.selection = ""
 
 
 

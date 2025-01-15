@@ -1,10 +1,9 @@
 import tkinter as tk
+
+from game import GameInstance
 from graph import *
 
 if __name__ == "__main__":
-	world = load_world("risk_graph.txt")
-	world.initialize_random_ownership()
-	world.render()
-
-	print("Debug")
-	print(world.get_moves(1))
+	game_instance = GameInstance(load_world("risk_graph.txt"))
+	game_instance.world.initialize_random_ownership()
+	game_instance.play()
