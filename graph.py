@@ -2,6 +2,10 @@ import networkx as nx
 import random
 from tkinter import *
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
+from qiskit.visualization import plot_bloch_vector
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
 
 COLORS = ["gray", "blue", "red"]
 
@@ -22,7 +26,7 @@ class Continent:
 
 	def render(self, world):
 		x, y = self.x * world.size, self.y * world.size
-		label = f"continent:{self.name.replace(" ", "")}"
+		label = f"continent:{self.name.replace(' ', '')}"
 		text = f"{self.name} ({self.gate})"
 		font = ("Helvetica", 13, "bold")
 		world.canvas.delete(label)
@@ -53,13 +57,15 @@ class Country:
 	def render(self, world, selected=False):
 		x, y = self.x * world.size, self.y * world.size
 		size = 30 if selected else 20
-		label = f"country:{self.name.replace(" ", "")}"
+		label = f"country:{self.name.replace(' ', '')}"
 		world.canvas.delete(label)
 		world.canvas.delete(f"{label}-title")
 		world.canvas.create_oval(x - size, y - size, x + size, y + size, fill=COLORS[self.owner], tags=label)
 		if selected:
 			world.canvas.create_text(x, y - size - 10, text=self.name, font=("Helvetica", 10), tags=f"{label}-title")
 		world.canvas.tag_bind(label, "<Button-1>", lambda e: world.select(self.name))
+		world.canvas.tag_bind(label, "<Enter>", lambda e: world.show_bloch_sphere(self))
+		world.canvas.tag_bind(label, "<Leave>", lambda e: world.close_bloch_window())
 
 # Class storing all the continents and country graph
 class World:
@@ -74,7 +80,8 @@ class World:
 		self.selection = ""					# The name of the selected country
 		self.can_select = False
 		self.selection_player = 0
-
+		self.bloch_window = None  # Store reference to the Bloch sphere window
+		self.current_country = None  # Track which country's Bloch sphere is shown
 		image = Image.open("background.png")
 		image.thumbnail((size, int(size * 0.75)), Image.Resampling.LANCZOS)
 		self.background = ImageTk.PhotoImage(image)		# The background
@@ -98,6 +105,48 @@ class World:
 		for country in self.get_all_countries():
 			country.owner = owners[index]
 			index = index + 1
+
+	def show_bloch_sphere(self, country):
+		print(self.bloch_window)
+		if self.bloch_window is not None and self.current_country == country:
+			print("enter")
+			return
+		# Create new window
+		# self.close_bloch_window()
+		self.bloch_window = Toplevel(self.root)
+		self.bloch_window.title(f"Bloch Sphere: {country.name}")
+		self.current_country = country
+
+		# Set window size and position
+		self.bloch_window.geometry("600x400+100+100")
+
+		# Create Matplotlib figure and axes
+		fig = plt.figure(figsize=(4 * len(country.qubits), 4))
+		# print(len(country.qubits))
+		axes = []
+		for i in range(len(country.qubits)):
+			ax = fig.add_subplot(1, len(country.qubits), i + 1, projection="3d")
+			axes.append(ax)
+
+		# print(len(country.qubits))
+		for i, qubit in enumerate(country.qubits):
+			bloch_vector = np.array([1, 0, 0])  # Replace with actual Bloch vector
+			plot_bloch_vector(bloch_vector, ax=axes[i])
+
+		# Embed Matplotlib figure in Tkinter window
+		from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+		canvas = FigureCanvasTkAgg(fig, master=self.bloch_window)
+		canvas.draw()
+		canvas.get_tk_widget().pack()
+		# Ensure window stays open
+		# self.bloch_window.protocol("WM_DELETE_WINDOW", self.close_bloch_window)
+
+	def close_bloch_window(self):
+		print("losing", self.bloch_window)
+		if self.bloch_window is not None:
+			self.bloch_window.destroy()
+			self.bloch_window = None
+			self.current_country = None
 
 	def has_continental_bonus(self, continent, player):
 		if len(continent.countries) < 2: 	# Continents with only 1 country have no bonus
