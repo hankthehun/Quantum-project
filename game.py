@@ -26,6 +26,9 @@ class GameInstance:
     def confirm(self):
         self.confirmed = True
 
+    def get_button_side(self):
+        return LEFT if self.current_player == 1 else RIGHT
+
     def stop(self):
         self.should_continue = False
 
@@ -42,9 +45,9 @@ class GameInstance:
 
     def render_moves(self):
         self.world.canvas.delete("move")
-        self.world.canvas.create_text(130, 670, text="Available Gates", font=("Helvetica", 12, "bold"), fill="black", tags="move")
+        self.world.canvas.create_text(110, 620, text="Available Gates", font=("Helvetica", 12, "bold"), fill="black", tags="move")
         for i, move in enumerate(self.current_moves):
-            x, y = get_move_render_position(50, 700, i)
+            x, y = get_move_render_position(30, 650, i)
             move.render(self.world, x, y, lambda m: self.select_move(m))
         self.world.root.update()
 
@@ -124,7 +127,7 @@ class GameInstance:
             self.next_step_button.destroy()
 
         self.next_step_button = Button(self.world.root, text="Start Attacking", command=lambda: self.stop())
-        self.next_step_button.pack()
+        self.next_step_button.pack(side=self.get_button_side())
 
         self.place_troops_iteration()
 

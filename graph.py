@@ -14,9 +14,21 @@ class Continent:
 		self.name = name			# Name of the continent
 		self.countries = countries	# List of the country names
 		self.gate = gate			# quantum gate
+		self.x = 0.0
+		self.y = 0.0
+		self.color = "black"
 
 	def __str__(self):
 		return f"[{self.name}]:\n -> quantum gate: {self.gate}\n -> countries: {self.countries}"
+
+	def render(self, world):
+		x, y = self.x * world.size, self.y * world.size
+		label = f"continent:{self.name.replace(" ", "")}"
+		text = f"{self.name} ({self.gate})"
+		font = ("Helvetica", 13, "bold")
+		world.canvas.delete(label)
+		world.canvas.create_text(x, y, fill=self.color, text=text, tags=label, font=font)
+
 
 # Class storing all the attributes of a country
 class Country:
@@ -184,11 +196,13 @@ class World:
 
 	def render(self):
 		self.render_background()
+		for continent in self.continents.values():
+			continent.render(self)
 		for edge in self.country_graph.edges():
 			self.render_edge(*edge)
-
 		for country in self.get_all_countries():
 			country.render(self, country.name == self.selection)
+
 		self.canvas.tag_raise("move")
 		self.root.update()
 
@@ -251,8 +265,12 @@ def load_world(filename):
 				continue
 
 			if continents_section: 		# in continents section, map each continent to its corresponding quantum gate
-				continent, gate = line.split(", ")
-				continents_dict[continent].gate = gate
+				name, gate, color, x, y = line.split(", ")
+				continent = continents_dict[name]
+				continent.gate = gate
+				continent.color = color
+				continent.x = float(x)
+				continent.y = float(y)
 
 			elif edges_section:			# in edges section, add an edge between 2 countries in the graph
 				country1, country2 = line.split(", ")

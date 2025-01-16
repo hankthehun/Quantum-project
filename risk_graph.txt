@@ -20,7 +20,7 @@ Central Europe, 1, Europe, 0.46, 0.24
 Eastern Europe, 1, Europe, 0.54, 0.24
 Russia, 1, Europe, 0.62, 0.16
 South-East Asia, 1, Asia, 0.8, 0.37
-Siberia, 1, Asia, 0.77, 0.09
+Siberia, 1, Asia, 0.77, 0.1
 China, 1, Asia, 0.82, 0.26
 India, 1, Asia, 0.72, 0.35
 Japan, 1, Asia, 0.93, 0.23
@@ -95,10 +95,10 @@ Antarctica, South Africa
 
 CONTINENTS
 
-Antarctica, H
-North America, X
-South America, YZ
-Europe, Z
-Africa, XY
-Asia, Y
-Oceania, XZ
+Antarctica, H, #777777, 0.5, 0.73
+North America, X, #AD8888, 0.2, 0.08
+South America, YZ, #BFAF99, 0.27, 0.63
+Europe, Z, #5E6E82, 0.57, 0.11
+Africa, XY, #6E9384, 0.45, 0.46
+Asia, Y, #6F9475, 0.83, 0.08
+Oceania, XZ, #81668A, 0.89, 0.62
