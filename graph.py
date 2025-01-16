@@ -2,7 +2,6 @@ import networkx as nx
 import random
 from tkinter import *
 from PIL import Image, ImageTk
-import uuid
 
 COLORS = ["gray", "blue", "red"]
 
@@ -62,55 +61,6 @@ class Country:
 			world.canvas.create_text(x, y - size - 10, text=self.name, font=("Helvetica", 10), tags=f"{label}-title")
 		world.canvas.tag_bind(label, "<Button-1>", lambda e: world.select(self.name))
 
-
-class Move:
-	def __init__(self, gate):
-		self.gate = gate
-		self.selected = False
-		self.country1 = ""
-		self.country2 = ""
-		self.qubit1 = 0
-		self.qubit2 = 0
-
-	def render(self, world, x, y, click_callback):
-		label = f"move-{str(uuid.uuid4())}"
-		size = 18 if self.selected else 15
-		width = 3 if self.selected else 2
-		color = "orange" if self.is_double_gate() else "black"
-		world.canvas.create_rectangle(x - size, y - size, x + size, y + size, outline=color, fill="white", tags=("move", label), width=width)
-		world.canvas.create_text(x, y, text=f"{self.gate}", font=("Helvetica", 10, "bold"), fill=color, tags=("move", label + "-text"))
-		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(self))
-		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(self))
-		if self.country1 != "":
-			x, y = world.get_country(self.country1).get_pos()
-			x = x * world.size
-			y = y * world.size
-			world.canvas.create_rectangle(x - 3, y - 3, x + 3, y + 3, fill="green", tags="move")
-
-	def is_double_gate(self):
-		return self.gate in ["CX", "CY", "CZ", "CXY", "CYZ", "CXZ"]
-
-	def select_country(self, country):
-		if self.country1 == "":
-			self.country1 = country
-			return not self.is_double_gate()
-
-		elif self.country1 == country:
-			return False
-		else:
-			self.country2 = country
-			return True
-
-	def set_selected(self, selected):
-		if not selected:
-			self.country1 = ""
-		self.selected = selected
-
-	def __str__(self):
-		if self.is_double_gate():
-			return f"Move [{self.gate}]: {self.country2}({self.qubit2}) -> {self.country1}({self.qubit1})"
-		return f"Move [{self.gate}]: {self.country1}({self.qubit1})"
-
 # Class storing all the continents and country graph
 class World:
 	def __init__(self, country_graph=None, continents=None, size=1200):
@@ -167,11 +117,6 @@ class World:
 	def get_all_possessions(self, player):
 		return [country for country in self.get_all_countries() if country.is_owned(player)]
 
-	def get_moves(self, player):
-		gates = [self.get_continent(country.continent).gate for country in self.get_all_possessions(player)]
-		bonus = self.get_all_continental_bonus(player)
-		return [Move(g) for g in gates + bonus]
-
 	def get_qubit_amount(self):
 		return sum(len(country.qubits) for country in self.get_all_countries())
 
@@ -223,6 +168,26 @@ class World:
 		self.selection_player = player if not select_enemy else (player % 2) + 1
 		if not can_select:
 			self.selection = ""
+
+	def are_connected(self, country1, country2):
+		# Get the colors of the two nodes
+		c1 = self.get_country(country1)
+		c2 = self.get_country(country2)
+		owner1 = c1.owner
+		owner2 = c2.owner
+
+		if owner1 != owner2:
+			return False
+
+		same_owner_nodes = [c.name for c in self.get_all_possessions(owner1)]
+		subgraph = self.country_graph.subgraph(same_owner_nodes)
+
+		# Check if the two nodes are connected in this subgraph
+		return nx.has_path(subgraph, country1, country2)
+
+	def show_temporary_message(self, text, color, time):
+		self.canvas.create_text(self.size//2, self.size*3//8, text=text, fill=color, tags="temporary", font=("Helvetica", 20))
+		self.root.after(time, lambda: self.canvas.delete("temporary"))
 
 
 

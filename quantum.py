@@ -77,6 +77,10 @@ class GameCircuit:
             print(f"[WARNING] Invalid gate: {gate}")
 
 
+    def apply_swap(self, qubit1, qubit2):
+        self.qc.swap(qubit1, qubit2)
+
+
     def measure_in_basis(self, qubit_index, basis):
         # Apply basis-changing gates
         if basis == 'X':

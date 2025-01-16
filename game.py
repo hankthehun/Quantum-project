@@ -1,12 +1,9 @@
-from graph import *
 from quantum import *
+from moves import *
+from graph import *
 
-
-def get_move_render_position(x, y, index):
-    column = index//5
-    row = index%5
-    return x + row*40, y + column*40
-
+PHASE_TITLES = ["Placing Troops", "Attacking", "Moving Troops"]
+PHASE_BUTTONS = ["Start Attacking", "End Attacks", "End Turn"]
 
 class GameInstance:
     def __init__(self, world, circuit=None):
@@ -22,12 +19,10 @@ class GameInstance:
         self.should_continue = False
         self.current_player = 0
         self.next_step_button = None
+        self.troop_swap = None
 
     def confirm(self):
         self.confirmed = True
-
-    def get_button_side(self):
-        return LEFT if self.current_player == 1 else RIGHT
 
     def stop(self):
         self.should_continue = False
@@ -46,8 +41,9 @@ class GameInstance:
     def render_moves(self):
         self.world.canvas.delete("move")
         self.world.canvas.create_text(110, 620, text="Available Gates", font=("Helvetica", 12, "bold"), fill="black", tags="move")
+        render_positions = get_move_render_positions(30, 650, len(self.current_moves))
         for i, move in enumerate(self.current_moves):
-            x, y = get_move_render_position(30, 650, i)
+            x, y = render_positions[i]
             move.render(self.world, x, y, lambda m: self.select_move(m))
         self.world.root.update()
 
@@ -75,29 +71,17 @@ class GameInstance:
         self.world.render()
 
 
-    def wait_for_country_selected(self):
-        if not self.should_continue:
-            self.world.root.after(1, self.place_troops_iteration)
-            return
+    def execute_troop_swap(self, troop_swap):
+        print(troop_swap)
+        qubit1 = self.world.get_country(troop_swap.country1).qubits[troop_swap.qubit1]
+        qubit2 = self.world.get_country(troop_swap.country2).qubits[troop_swap.qubit2]
+        self.circuit.apply_swap(qubit1, qubit2)
+        self.world.allow_selection(False)
+        self.world.render()
 
-        if self.world.selection.strip() != "":
-            self.ask_for_confirmation()
-            if self.confirmed:
-                self.reset_confirmation()
 
-                if self.selected_move.select_country(self.world.selection):
-                    self.execute_move(self.selected_move)
-                    self.world.root.after(1, self.place_troops_iteration)
-                else:
-                    if self.selected_move.country1 != "":
-                        self.world.allow_selection(True, self.current_player, True)
-                    self.render_moves()
-                    self.world.root.after(50, self.wait_for_country_selected)
-            else:
-                self.world.root.after(50, self.wait_for_country_selected)
-
-        else:
-            self.world.root.after(50, self.wait_for_country_selected)
+    def execute_later(self, function, time):
+        self.world.root.after(time, function)
 
 
     def place_troops_iteration(self):
@@ -106,30 +90,72 @@ class GameInstance:
 
         if self.should_continue:
             self.render_moves()
-            self.wait_for_country_selected()
+            if self.world.selection.strip() != "":
+                self.ask_for_confirmation()
+                if self.confirmed:
+                    self.reset_confirmation()
+
+                    if self.selected_move.select_country(self.world.selection):
+                        self.execute_move(self.selected_move)
+                        self.execute_later(self.place_troops_iteration, 1)
+                        return
+                    else:
+                        if self.selected_move.country1 != "":
+                            self.world.allow_selection(True, self.current_player, True)
+            self.execute_later(self.place_troops_iteration, 50)
         else:
+            self.move_troops()
+
+    def move_troops_iteration(self):
+        if self.should_continue:
+            self.troop_swap.render(self.world)
+            if self.world.selection.strip() != "":
+                self.ask_for_confirmation()
+                if self.confirmed:
+                    self.reset_confirmation()
+                    if self.troop_swap.select_country(self.world, self.world.selection):
+                        self.execute_troop_swap(self.troop_swap)
+                        self.stop()
+                        self.execute_later(self.move_troops_iteration, 1)
+                        return
+            self.execute_later(self.move_troops_iteration, 50)
+        else:
+            self.world.canvas.delete("swap")
             self.next_step_button.destroy()
             self.next_step_button = None
             self.switch_player()
             self.place_troops()
 
-
-    def place_troops(self):
+    def setup_turn_phase(self, phase):
+        if phase < 1 or phase > 3:
+            return
         self.world.allow_selection(False)
         self.world.selection = ""
         self.world.render()
         self.world.canvas.delete("turn")
-        self.world.canvas.create_text(self.world.size // 2, 20, text="Phase 1 : Place Troops", font=("Helvetica", 20), fill=COLORS[self.current_player], tags="turn")
-        self.current_moves = self.world.get_moves(self.current_player)
+        text = f"Phase {phase} : {PHASE_TITLES[phase-1]}"
+        self.world.canvas.create_text(self.world.size // 2, 20, text=text, font=("Helvetica", 20),
+                                      fill=COLORS[self.current_player], tags="turn")
         self.should_continue = True
 
         if self.next_step_button is not None:
             self.next_step_button.destroy()
 
-        self.next_step_button = Button(self.world.root, text="Start Attacking", command=lambda: self.stop())
-        self.next_step_button.pack(side=self.get_button_side())
+        self.next_step_button = Button(self.world.root, text=PHASE_BUTTONS[phase-1], command=lambda: self.stop())
+        self.next_step_button.pack(side=LEFT if self.current_player == 1 else RIGHT)
 
+
+    def place_troops(self):
+        self.setup_turn_phase(1)
+        self.current_moves = get_player_placing_moves(self.world, self.current_player)
         self.place_troops_iteration()
+
+    def move_troops(self):
+        self.setup_turn_phase(3)
+        self.troop_swap = TroopSwap()
+        self.world.allow_selection(True, self.current_player)
+        self.world.canvas.delete("move")
+        self.move_troops_iteration()
 
     def switch_player(self):
         self.current_player = (self.current_player % 2) + 1

@@ -1,5 +1,3 @@
-import tkinter as tk
-
 from game import GameInstance
 from graph import *
 
