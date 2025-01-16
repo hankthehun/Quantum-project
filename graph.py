@@ -1,5 +1,9 @@
 import networkx as nx
 import random
+from tkinter import *
+from PIL import Image, ImageTk
+
+COLORS = ["gray", "blue", "red"]
 
 # Class storing all the attributes of a continent
 class Continent:
@@ -9,9 +13,21 @@ class Continent:
 		self.name = name			# Name of the continent
 		self.countries = countries	# List of the country names
 		self.gate = gate			# quantum gate
+		self.x = 0.0
+		self.y = 0.0
+		self.color = "black"
 
 	def __str__(self):
 		return f"[{self.name}]:\n -> quantum gate: {self.gate}\n -> countries: {self.countries}"
+
+	def render(self, world):
+		x, y = self.x * world.size, self.y * world.size
+		label = f"continent:{self.name.replace(" ", "")}"
+		text = f"{self.name} ({self.gate})"
+		font = ("Helvetica", 13, "bold")
+		world.canvas.delete(label)
+		world.canvas.create_text(x, y, fill=self.color, text=text, tags=label, font=font)
+
 
 # Class storing all the attributes of a country
 class Country:
@@ -28,14 +44,40 @@ class Country:
 	def is_owned(self, player):
 		return self.owner == player
 
+	def get_pos(self):
+		return self.x, self.y
+
 	def __str__(self):
 		return f"[{self.name} (located in {self.continent})]:\n -> {len(self.qubits)} qubits: {self.qubits}\n -> pos: ({self.x}, {self.y})\n -> owner: {self.owner}"
 
+	def render(self, world, selected=False):
+		x, y = self.x * world.size, self.y * world.size
+		size = 30 if selected else 20
+		label = f"country:{self.name.replace(" ", "")}"
+		world.canvas.delete(label)
+		world.canvas.delete(f"{label}-title")
+		world.canvas.create_oval(x - size, y - size, x + size, y + size, fill=COLORS[self.owner], tags=label)
+		if selected:
+			world.canvas.create_text(x, y - size - 10, text=self.name, font=("Helvetica", 10), tags=f"{label}-title")
+		world.canvas.tag_bind(label, "<Button-1>", lambda e: world.select(self.name))
+
 # Class storing all the continents and country graph
 class World:
-	def __init__(self, country_graph=None, continents=None):
+	def __init__(self, country_graph=None, continents=None, size=1200):
+		self.size = size
 		self.country_graph = country_graph	# The graph connecting all the countries
 		self.continents = continents		# A dict containing all the continents
+		self.root = Tk()					# The tkinter root object
+		self.root.title("Quantum Risk")
+		self.canvas = Canvas(self.root, width=size, height=int(size*0.75)) # The canvas
+		self.canvas.pack()
+		self.selection = ""					# The name of the selected country
+		self.can_select = False
+		self.selection_player = 0
+
+		image = Image.open("background.png")
+		image.thumbnail((size, int(size * 0.75)), Image.Resampling.LANCZOS)
+		self.background = ImageTk.PhotoImage(image)		# The background
 
 	def get_country(self, name):
 		return self.country_graph.nodes[name]['country']
@@ -75,13 +117,77 @@ class World:
 	def get_all_possessions(self, player):
 		return [country for country in self.get_all_countries() if country.is_owned(player)]
 
-	def get_moves(self, player):
-		moves = [self.get_continent(country.continent).gate for country in self.get_all_possessions(player)]
-		bonus = self.get_all_continental_bonus(player)
-		return moves + bonus
-
 	def get_qubit_amount(self):
 		return sum(len(country.qubits) for country in self.get_all_countries())
+
+	def render_edge(self, a, b):
+		country1 = self.get_country(a)
+		country2 = self.get_country(b)
+		x1, y1 = country1.x * self.size, country1.y * self.size
+		x2, y2 = country2.x * self.size, country2.y * self.size
+		labels = (f"edge-{country1.name}-{country2.name}", f"edge-{country2.name}-{country1.name}")
+		for l in labels:
+			self.canvas.delete(l)
+		if abs(x1 - x2) > self.size / 2:
+			self.canvas.create_line(x1, y1, 0, y1, fill="black", width=2, tags=labels)
+			self.canvas.create_line(self.size, y1, x2, y2, fill="black", width=2, tags=labels)
+		else:
+			self.canvas.create_line(x1, y1, x2, y2, fill="black", width=2, tags=labels)
+
+	def render_background(self):
+		self.canvas.delete("background")
+		self.canvas.create_image(0, 0, anchor="nw", image=self.background, tags="background")
+		self.canvas.tag_lower("background")
+
+	def render(self):
+		self.render_background()
+		for continent in self.continents.values():
+			continent.render(self)
+		for edge in self.country_graph.edges():
+			self.render_edge(*edge)
+		for country in self.get_all_countries():
+			country.render(self, country.name == self.selection)
+
+		self.canvas.tag_raise("move")
+		self.root.update()
+
+	def select(self, country):
+		if not self.can_select:
+			return
+		if self.get_country(country).is_owned(self.selection_player) or self.selection_player == 0:
+			self.selection = country
+			self.render()
+
+	def get_selected_country(self):
+		if self.selection == "":
+			return None
+		return self.get_country(self.selection)
+
+	def allow_selection(self, can_select, player=0, select_enemy=False):
+		self.can_select = can_select
+		self.selection_player = player if not select_enemy else (player % 2) + 1
+		if not can_select:
+			self.selection = ""
+
+	def are_connected(self, country1, country2):
+		# Get the colors of the two nodes
+		c1 = self.get_country(country1)
+		c2 = self.get_country(country2)
+		owner1 = c1.owner
+		owner2 = c2.owner
+
+		if owner1 != owner2:
+			return False
+
+		same_owner_nodes = [c.name for c in self.get_all_possessions(owner1)]
+		subgraph = self.country_graph.subgraph(same_owner_nodes)
+
+		# Check if the two nodes are connected in this subgraph
+		return nx.has_path(subgraph, country1, country2)
+
+	def show_temporary_message(self, text, color, time):
+		self.canvas.create_text(self.size//2, self.size*3//8, text=text, fill=color, tags="temporary", font=("Helvetica", 20))
+		self.root.after(time, lambda: self.canvas.delete("temporary"))
 
 
 
@@ -124,8 +230,12 @@ def load_world(filename):
 				continue
 
 			if continents_section: 		# in continents section, map each continent to its corresponding quantum gate
-				continent, gate = line.split(", ")
-				continents_dict[continent].gate = gate
+				name, gate, color, x, y = line.split(", ")
+				continent = continents_dict[name]
+				continent.gate = gate
+				continent.color = color
+				continent.x = float(x)
+				continent.y = float(y)
 
 			elif edges_section:			# in edges section, add an edge between 2 countries in the graph
 				country1, country2 = line.split(", ")
@@ -142,26 +252,3 @@ def load_world(filename):
 				continents_dict[continent].countries.append(name)
 
 	return World(country_graph, continents_dict)
-
-
-
-def draw_world(world, drawing_canvas, width):
-	colors = ["gray", "blue", "red"]
-
-	for edge in world.country_graph.edges():
-		country1 = world.get_country(edge[0])
-		country2 = world.get_country(edge[1])
-		x1, y1 = country1.x * width, country1.y * width
-		x2, y2 = country2.x * width, country2.y * width
-		if abs(x1 - x2) > width/2:
-			drawing_canvas.create_line(x1, y1, 0, y1, fill="gray", width=2)
-			drawing_canvas.create_line(width, y1, x2, y2, fill="gray", width=2)
-		else:
-			drawing_canvas.create_line(x1, y1, x2, y2, fill="gray", width=2)
-
-	for country in world.get_all_countries():
-		x, y = country.x * width, country.y * width
-		drawing_canvas.create_oval(x - 10, y - 10, x + 10, y + 10, fill=colors[country.owner])
-
-		# Draw the country name above the oval
-		drawing_canvas.create_text(x, y - 20, text=country.name, font=("Helvetica", 10, "bold"))
