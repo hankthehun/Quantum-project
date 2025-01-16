@@ -33,6 +33,9 @@ class Country:
 	def is_owned(self, player):
 		return self.owner == player
 
+	def get_pos(self):
+		return self.x, self.y
+
 	def __str__(self):
 		return f"[{self.name} (located in {self.continent})]:\n -> {len(self.qubits)} qubits: {self.qubits}\n -> pos: ({self.x}, {self.y})\n -> owner: {self.owner}"
 
@@ -52,15 +55,49 @@ class Move:
 	def __init__(self, gate):
 		self.gate = gate
 		self.selected = False
+		self.country1 = ""
+		self.country2 = ""
+		self.qubit1 = 0
+		self.qubit2 = 0
 
-	def render(self, canvas, x, y, click_callback):
+	def render(self, world, x, y, click_callback):
 		label = f"move-{str(uuid.uuid4())}"
 		size = 18 if self.selected else 15
 		width = 3 if self.selected else 2
-		canvas.create_rectangle(x - size, y - size, x + size, y + size, outline="black", fill="white", tags=("move", label), width=width)
-		canvas.create_text(x, y, text=f"{self.gate}", font=("Helvetica", 10, "bold"), fill="black", tags=("move", label + "-text"))
-		canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(self))
-		canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(self))
+		color = "orange" if self.is_double_gate() else "black"
+		world.canvas.create_rectangle(x - size, y - size, x + size, y + size, outline=color, fill="white", tags=("move", label), width=width)
+		world.canvas.create_text(x, y, text=f"{self.gate}", font=("Helvetica", 10, "bold"), fill=color, tags=("move", label + "-text"))
+		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(self))
+		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(self))
+		if self.country1 != "":
+			x, y = world.get_country(self.country1).get_pos()
+			x = x * world.size
+			y = y * world.size
+			world.canvas.create_rectangle(x - 3, y - 3, x + 3, y + 3, fill="green", tags="move")
+
+	def is_double_gate(self):
+		return self.gate in ["CX", "CY", "CZ", "CXY", "CYZ", "CXZ"]
+
+	def select_country(self, country):
+		if self.country1 == "":
+			self.country1 = country
+			return not self.is_double_gate()
+
+		elif self.country1 == country:
+			return False
+		else:
+			self.country2 = country
+			return True
+
+	def set_selected(self, selected):
+		if not selected:
+			self.country1 = ""
+		self.selected = selected
+
+	def __str__(self):
+		if self.is_double_gate():
+			return f"Move [{self.gate}]: {self.country2}({self.qubit2}) -> {self.country1}({self.qubit1})"
+		return f"Move [{self.gate}]: {self.country1}({self.qubit1})"
 
 # Class storing all the continents and country graph
 class World:
@@ -68,7 +105,7 @@ class World:
 		self.size = size
 		self.country_graph = country_graph	# The graph connecting all the countries
 		self.continents = continents		# A dict containing all the continents
-		self.root = Tk()	# The tkinter root object
+		self.root = Tk()					# The tkinter root object
 		self.root.title("Quantum Risk")
 		self.canvas = Canvas(self.root, width=size, height=int(size*0.75)) # The canvas
 		self.canvas.pack()
@@ -142,8 +179,8 @@ class World:
 
 	def render_background(self):
 		self.canvas.delete("background")
-		bg = self.canvas.create_image(0, 0, anchor="nw", image=self.background, tags="background")
-		self.canvas.tag_lower(bg)
+		self.canvas.create_image(0, 0, anchor="nw", image=self.background, tags="background")
+		self.canvas.tag_lower("background")
 
 	def render(self):
 		self.render_background()
@@ -152,6 +189,7 @@ class World:
 
 		for country in self.get_all_countries():
 			country.render(self, country.name == self.selection)
+		self.canvas.tag_raise("move")
 		self.root.update()
 
 	def select(self, country):
@@ -166,9 +204,9 @@ class World:
 			return None
 		return self.get_country(self.selection)
 
-	def allow_selection(self, can_select, player=0):
+	def allow_selection(self, can_select, player=0, select_enemy=False):
 		self.can_select = can_select
-		self.selection_player = player
+		self.selection_player = player if not select_enemy else (player % 2) + 1
 		if not can_select:
 			self.selection = ""
 

@@ -45,7 +45,7 @@ class GameInstance:
         self.world.canvas.create_text(130, 670, text="Available Gates", font=("Helvetica", 12, "bold"), fill="black", tags="move")
         for i, move in enumerate(self.current_moves):
             x, y = get_move_render_position(50, 700, i)
-            move.render(self.world.canvas, x, y, lambda m: self.select_move(m))
+            move.render(self.world, x, y, lambda m: self.select_move(m))
         self.world.root.update()
 
     def select_move(self, move):
@@ -54,16 +54,22 @@ class GameInstance:
         self.world.allow_selection(True, self.current_player)
         self.selected_move = move
         for m in self.current_moves:
-            m.selected = m == move
+            m.set_selected(m == move)
         self.render_moves()
 
     def execute_move(self, move):
-        self.circuit.apply_single_gate(move.gate, self.world.get_selected_country().qubits[0])
+        print(move)
+        country1 = self.world.get_country(move.country1)
+        if not move.is_double_gate():
+            self.circuit.apply_single_gate(move.gate, country1.qubits[move.qubit1])
+        else:
+            country2 = self.world.get_country(move.country2)
+            self.circuit.apply_double_gate(move.gate, country2.qubits[move.qubit2], country1.qubits[move.qubit1])
+
         self.current_moves.remove(move)
         self.selected_move = None
         self.world.allow_selection(False)
         self.world.render()
-        self.reset_confirmation()
 
 
     def wait_for_country_selected(self):
@@ -74,8 +80,16 @@ class GameInstance:
         if self.world.selection.strip() != "":
             self.ask_for_confirmation()
             if self.confirmed:
-                self.execute_move(self.selected_move)
-                self.world.root.after(1, self.place_troops_iteration)
+                self.reset_confirmation()
+
+                if self.selected_move.select_country(self.world.selection):
+                    self.execute_move(self.selected_move)
+                    self.world.root.after(1, self.place_troops_iteration)
+                else:
+                    if self.selected_move.country1 != "":
+                        self.world.allow_selection(True, self.current_player, True)
+                    self.render_moves()
+                    self.world.root.after(50, self.wait_for_country_selected)
             else:
                 self.world.root.after(50, self.wait_for_country_selected)
 
@@ -116,7 +130,6 @@ class GameInstance:
 
     def switch_player(self):
         self.current_player = (self.current_player % 2) + 1
-        print(f"Player {self.current_player}")
 
     def play(self):
             self.current_player = 1

@@ -52,23 +52,23 @@ class GameCircuit:
             return
         gate = gate.upper()
 
-        if gate == 'X':
+        if gate == 'CX':
             self.qc.cx(control, target)
-        elif gate == 'Y':
+        elif gate == 'CY':
             self.qc.cy(control, target)
-        elif gate == 'Z':
+        elif gate == 'CZ':
             self.qc.cz(control, target)
-        elif gate == 'XY':
+        elif gate == 'CXY':
             self.qc.crz(PI_OVER_4, control, target)
             self.qc.crx(PI_OVER_8, control, target)
             self.qc.crz(-PI_OVER_4, control, target)
             pass
-        elif gate == 'YZ':
+        elif gate == 'CYZ':
             self.qc.crx(PI_OVER_4, control, target)
             self.qc.cry(PI_OVER_8, control, target)
             self.qc.crx(-PI_OVER_4, control, target)
             pass
-        elif gate == 'XZ':
+        elif gate == 'CXZ':
             self.qc.cry(PI_OVER_4, control, target)
             self.qc.crz(PI_OVER_8, control, target)
             self.qc.cry(-PI_OVER_4, control, target)
