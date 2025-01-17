@@ -22,7 +22,7 @@ class Continent:
 
 	def render(self, world):
 		x, y = self.x * world.size, self.y * world.size
-		label = f"continent:{self.name.replace(" ", "")}"
+		label = f"continent:{self.name.replace(' ', '')}"
 		text = f"{self.name} ({self.gate})"
 		font = ("Helvetica", 13, "bold")
 		world.canvas.delete(label)
@@ -53,7 +53,7 @@ class Country:
 	def render(self, world, selected=False):
 		x, y = self.x * world.size, self.y * world.size
 		size = 30 if selected else 20
-		label = f"country:{self.name.replace(" ", "")}"
+		label = f"country:{self.name.replace(' ', '')}"
 		world.canvas.delete(label)
 		world.canvas.delete(f"{label}-title")
 		world.canvas.create_oval(x - size, y - size, x + size, y + size, fill=COLORS[self.owner], tags=label)
