@@ -19,10 +19,13 @@ class PlacingMove:
 		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(self))
 		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(self))
 		if self.country1 != "":
-			x, y = world.get_country(self.country1).get_pos()
-			x = x * world.size
-			y = y * world.size
-			world.canvas.create_rectangle(x - 5, y - 5, x + 5, y + 5, fill="green", tags="move")
+			x1, y1 = world.get_country(self.country1).get_pos(world.size)
+			if world.selection not in ["", self.country1]:
+				x2, y2 = world.get_selected_country().get_pos(world.size)
+				world.canvas.create_oval(x2 - 5, y2 - 5, x2 + 5, y2 + 5, fill="green", tags="move")
+				world.canvas.create_line(x2, y2, x1, y1, fill="green", tags="move", width=5, arrow="last", arrowshape=(20, 20, 10))
+			else:
+				world.canvas.create_oval(x1 - 5, y1 - 5, x1 + 5, y1 + 5, fill="green", tags="move")
 
 	def is_double_gate(self):
 		return self.gate in ["CX", "CY", "CZ", "CXY", "CYZ", "CXZ"]
@@ -82,10 +85,13 @@ class TroopSwap:
 	def render(self, world):
 		world.canvas.delete("swap")
 		if self.country1 != "":
-			x, y = world.get_country(self.country1).get_pos()
-			x = x * world.size
-			y = y * world.size
-			world.canvas.create_rectangle(x - 5, y - 5, x + 5, y + 5, fill="green", tags="swap")
+			x1, y1 = world.get_country(self.country1).get_pos(world.size)
+			if world.selection not in ["", self.country1]:
+				x2, y2 = world.get_selected_country().get_pos(world.size)
+				color = "green" if world.are_connected(self.country1, world.selection) else "red"
+				world.canvas.create_line(x2, y2, x1, y1, fill=color, tags="swap", width=5, arrow="both", arrowshape=(20, 20, 10))
+			else:
+				world.canvas.create_oval(x1 - 5, y1 - 5, x1 + 5, y1 + 5, fill="green", tags="swap")
 
 	def __str__(self):
 		return f"Swap: {self.country2}({self.qubit2}) <-> {self.country1}({self.qubit1})"

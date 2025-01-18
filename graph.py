@@ -44,8 +44,8 @@ class Country:
 	def is_owned(self, player):
 		return self.owner == player
 
-	def get_pos(self):
-		return self.x, self.y
+	def get_pos(self, size=1.0):
+		return self.x * size, self.y * size
 
 	def __str__(self):
 		return f"[{self.name} (located in {self.continent})]:\n -> {len(self.qubits)} qubits: {self.qubits}\n -> pos: ({self.x}, {self.y})\n -> owner: {self.owner}"
@@ -186,6 +186,7 @@ class World:
 		return nx.has_path(subgraph, country1, country2)
 
 	def show_temporary_message(self, text, color, time):
+		self.canvas.create_rectangle(0, self.size*3//8 - 20, self.size, self.size*3//8 + 20, fill="white", tags="temporary")
 		self.canvas.create_text(self.size//2, self.size*3//8, text=text, fill=color, tags="temporary", font=("Helvetica", 20))
 		self.root.after(time, lambda: self.canvas.delete("temporary"))
 
