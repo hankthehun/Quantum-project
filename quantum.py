@@ -9,7 +9,7 @@ class GameCircuit:
     def __init__(self, qubits):
         self.size = qubits
         self.qc = QuantumCircuit(qubits, qubits)
-
+    
     def apply_single_gate(self, gate, qubit):
         if qubit < 0 or qubit > self.size:
             print(f"[WARNING] Qubit index {qubit} out of range [0, {self.size-1}]")

@@ -12,6 +12,8 @@ class GameInstance:
             self.circuit = GameCircuit(self.world.get_qubit_amount())
         else:
             self.circuit = circuit
+            
+        self.world.circuit = self.circuit
         self.current_moves = None
         self.selected_move = None
         self.confirmed = False
@@ -26,7 +28,6 @@ class GameInstance:
 
     def stop(self):
         self.should_continue = False
-
     def reset_confirmation(self):
         self.confirmed = False
         if self.confirm_button is not None:
@@ -45,6 +46,7 @@ class GameInstance:
         for i, move in enumerate(self.current_moves):
             x, y = render_positions[i]
             move.render(self.world, x, y, lambda m: self.select_move(m))
+        self.world.circuit = self.circuit
         self.world.root.update()
 
     def select_move(self, move):

@@ -3,7 +3,12 @@ import random
 from tkinter import *
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
+
+from qiskit.quantum_info import Statevector, partial_trace, DensityMatrix
 from qiskit.visualization import plot_bloch_vector
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
@@ -85,6 +90,13 @@ class World:
 		image = Image.open("background.png")
 		image.thumbnail((size, int(size * 0.75)), Image.Resampling.LANCZOS)
 		self.background = ImageTk.PhotoImage(image)		# The background
+		self.circuit = None
+  
+	def set_circuit(self, circuit):
+		self.circuit = circuit
+  
+	def get_circuit(self):
+		return self.circuit
 
 	def get_country(self, name):
 		return self.country_graph.nodes[name]['country']
@@ -105,6 +117,58 @@ class World:
 		for country in self.get_all_countries():
 			country.owner = owners[index]
 			index = index + 1
+
+	def estimate_bloch_vector_for_qubit(self, t):
+		circ = self.get_circuit().qc
+		qc = circ.copy()  # Copy the circuit
+
+		simulator = AerSimulator()
+
+		# Number of shots (repetitions of the experiment)
+		shots = 1000
+		N = shots
+
+		# Prepare measurements for the qubit at index t
+		# Z-basis (standard computational basis)
+		qc_z = qc.copy()
+		qc_z.measure(t, t)  # Measure qubit at index t in Z-basis
+
+		# Run the simulation directly without `execute()`
+		result_z = simulator.run(qc_z, shots=shots).result()
+		counts_z = result_z.get_counts()
+
+		# X-basis (Hadamard rotation to the X-basis)
+		qc_x = qc.copy()
+		qc_x.h(t)  # Apply Hadamard gate to rotate to X basis
+		qc_x.measure(t, t)
+
+		# Run the simulation directly without `execute()`
+		result_x = simulator.run(qc_x, shots=shots).result()
+		counts_x = result_x.get_counts()
+
+		# Y-basis (S-gate and Hadamard for Y-basis)
+		qc_y = qc.copy()
+		qc_y.s(t)  # Apply S-gate for Y basis rotation
+		qc_y.h(t)  # Apply Hadamard to complete the Y-basis rotation
+		qc_y.measure(t, t)
+
+		# Run the simulation directly without `execute()`
+		result_y = simulator.run(qc_y, shots=shots).result()
+		counts_y = result_y.get_counts()
+
+		# Calculate averages for X, Y, and Z axes for qubit t
+		# X average: Counts for '1' minus '0'
+		x_avg = (counts_x.get('1', 0) - counts_x.get('0', 0)) / N
+		y_avg = (counts_y.get('1', 0) - counts_y.get('0', 0)) / N
+		z_avg = (counts_z.get('1', 0) - counts_z.get('0', 0)) / N
+
+		# Approximate Bloch vector (x_avg, y_avg, z_avg) for the qubit at index t
+		bloch_vector = np.array([x_avg, y_avg, z_avg])
+
+		# Print or return the Bloch vector for qubit t
+		print(f"Bloch vector for qubit {t}: {bloch_vector}")
+
+		return bloch_vector
 
 	def show_bloch_sphere(self, country):
 		print(self.bloch_window)
@@ -128,9 +192,19 @@ class World:
 			ax = fig.add_subplot(1, len(country.qubits), i + 1, projection="3d")
 			axes.append(ax)
 
+		circ = self.get_circuit().qc
+		qc = circ.copy()
+  
+		# measurements = [inst for inst in qc.data if inst[0].name == 'measure']
+
+		# if measurements:
+		# 	print(f"Measurement operations found: {measurements}")
+		# else:
+		# 	print("No measurement operations in the circuit.")
+		# qc.remove_all_measurements()
 		# print(len(country.qubits))
 		for i, qubit in enumerate(country.qubits):
-			bloch_vector = np.array([1, 0, 0])  # Replace with actual Bloch vector
+			bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
 			plot_bloch_vector(bloch_vector, ax=axes[i])
 
 		# Embed Matplotlib figure in Tkinter window
