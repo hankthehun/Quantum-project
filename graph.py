@@ -121,54 +121,148 @@ class World:
 	def estimate_bloch_vector_for_qubit(self, t):
 		circ = self.get_circuit().qc
 		qc = circ.copy()  # Copy the circuit
-
 		simulator = AerSimulator()
-
 		# Number of shots (repetitions of the experiment)
-		shots = 1000
+		shots = 2000
 		N = shots
-
 		# Prepare measurements for the qubit at index t
 		# Z-basis (standard computational basis)
 		qc_z = qc.copy()
 		qc_z.measure(t, t)  # Measure qubit at index t in Z-basis
-
 		# Run the simulation directly without `execute()`
 		result_z = simulator.run(qc_z, shots=shots).result()
 		counts_z = result_z.get_counts()
-
 		# X-basis (Hadamard rotation to the X-basis)
 		qc_x = qc.copy()
 		qc_x.h(t)  # Apply Hadamard gate to rotate to X basis
 		qc_x.measure(t, t)
-
 		# Run the simulation directly without `execute()`
 		result_x = simulator.run(qc_x, shots=shots).result()
 		counts_x = result_x.get_counts()
-
 		# Y-basis (S-gate and Hadamard for Y-basis)
 		qc_y = qc.copy()
 		qc_y.s(t)  # Apply S-gate for Y basis rotation
 		qc_y.h(t)  # Apply Hadamard to complete the Y-basis rotation
 		qc_y.measure(t, t)
-
-		# Run the simulation directly without `execute()`
 		result_y = simulator.run(qc_y, shots=shots).result()
 		counts_y = result_y.get_counts()
-
-		# Calculate averages for X, Y, and Z axes for qubit t
-		# X average: Counts for '1' minus '0'
-		x_avg = (counts_x.get('1', 0) - counts_x.get('0', 0)) / N
-		y_avg = (counts_y.get('1', 0) - counts_y.get('0', 0)) / N
-		z_avg = (counts_z.get('1', 0) - counts_z.get('0', 0)) / N
-
+		number = self.get_qubit_amount()
+		res = "0"*number
+		s = number - t - 1
+		respos = res[:s] + "1" + res[s+1:]
+		x_avg = -(counts_x.get(respos, 0) - counts_x.get(res, 0)) / N
+		y_avg = -(counts_y.get(respos, 0) - counts_y.get(res, 0)) / N
+		z_avg = -(counts_z.get(respos, 0) - counts_z.get(res, 0)) / N
 		# Approximate Bloch vector (x_avg, y_avg, z_avg) for the qubit at index t
 		bloch_vector = np.array([x_avg, y_avg, z_avg])
-
-		# Print or return the Bloch vector for qubit t
 		print(f"Bloch vector for qubit {t}: {bloch_vector}")
-
 		return bloch_vector
+
+	def render_entanglement_edges(self):
+		"""Render faint blue lines between countries that have entangled qubits."""
+		self.canvas.delete("entanglement")
+
+		entanglements = self.get_circuit().entanglements  # Dictionary of entangled qubit pairs
+		qubit_to_country = {}
+
+		# Map qubits to their respective countries
+		for country in self.get_all_countries():
+			for qubit in country.qubits:
+				qubit_to_country[qubit] = country
+
+		# Draw entanglement edges
+		for qubit1, qubit2 in entanglements.items():
+			if qubit1 in qubit_to_country and qubit2 in qubit_to_country:
+				country1 = qubit_to_country[qubit1]
+				country2 = qubit_to_country[qubit2]
+
+				x1, y1 = country1.x * self.size, country1.y * self.size
+				x2, y2 = country2.x * self.size, country2.y * self.size
+
+				self.canvas.create_line(x1, y1, x2, y2, fill="lightblue", width=2, dash=(5, 5), tags="entanglement")
+
+	def calculate_entangled_bloch_vector(self, t1, t2):
+		circ = self.get_circuit().qc
+		qc = circ.copy()  # Copy the circuit
+		simulator = AerSimulator()  # Use Qiskit AerSimulator for efficiency
+		shots = 2000
+		def measure_in_basis(qc, basis):
+			"""Run the circuit with measurements in the specified basis ('Z', 'X', or 'Y')."""
+			qc_meas = qc.copy()  # Copy circuit to avoid modifying original
+			if basis == 'X':
+				qc_meas.h([t1, t2])  # Hadamard for X-basis measurement
+			elif basis == 'Y':
+				qc_meas.sdg([t1, t2])  # S† gate
+				qc_meas.h([t1, t2])    # Hadamard
+			qc_meas.measure_all()
+			qc_meas = transpile(qc_meas, simulator)
+			result = simulator.run(qc_meas, shots=shots).result()
+			counts = result.get_counts()
+			return counts
+		number = self.get_qubit_amount()
+		# Measure in Z, X, and Y bases
+		counts_z_raw = measure_in_basis(qc, 'Z')
+		counts_x_raw = measure_in_basis(qc, 'X')
+		counts_y_raw = measure_in_basis(qc, 'Y')
+		s1 = number - t1 - 1
+		s2 = number - t2 - 1
+
+		def reduce_map(counts_raw, s1, s2):
+			counts = {}
+			for key in counts_raw:
+				if key[s1] == 0 and key[s2] == 0:
+					counts["00"] = counts_raw[key]
+				elif key[s1] == 0 and key[s2] == 1:
+					counts["01"] = counts_raw[key]
+				elif key[s1] == 1 and key[s2] == 0:
+					counts["10"] = counts_raw[key]
+				elif key[s1] == 1 and key[s2] == 1:
+					counts["11"] = counts_raw[key]
+			return counts
+
+		counts_z = reduce_map(counts_z_raw, s1, s2)
+		counts_x = reduce_map(counts_x_raw, s1, s2)
+		counts_y = reduce_map(counts_y_raw, s1, s2)
+		# Estimate probabilities from counts
+		def get_probabilities(counts):
+			probs = {key: counts.get(key, 0) / shots for key in ['00', '01', '10', '11']}
+			return np.array([probs['00'], probs['01'], probs['10'], probs['11']])
+
+		p_z = get_probabilities(counts_z)
+		p_x = get_probabilities(counts_x)
+		p_y = get_probabilities(counts_y)
+
+		# Compute Bell coefficients using probability overlaps
+		bell_coeffs = np.array([
+			(p_z[0] + p_z[3] + p_x[0] - p_x[3]) / 2,  # |Φ+⟩ coefficient
+			(p_z[0] + p_z[3] - p_x[0] + p_x[3]) / 2,  # |Φ-⟩ coefficient
+			(p_z[1] + p_z[2] + p_x[1] - p_x[2]) / 2,  # |Ψ+⟩ coefficient
+			(p_z[1] + p_z[2] - p_x[1] + p_x[2]) / 2   # |Ψ-⟩ coefficient
+		])
+		return bell_coeffs
+
+	def plot_bell_vector(bell_coeffs):
+		"""Plot the Bell basis representation as a 3D vector."""
+		# Extract coefficients
+		c1, c2, c3, c4 = bell_coeffs["Φ+"], bell_coeffs["Φ-"], bell_coeffs["Ψ+"], bell_coeffs["Ψ-"]
+		x = 2 * (np.real(c3 * np.conj(c1)) + np.real(c4 * np.conj(c2)))
+		y = 2 * (np.imag(c3 * np.conj(c1)) + np.imag(c4 * np.conj(c2)))
+		z = abs(c1)**2 - abs(c2)**2 + abs(c3)**2 - abs(c4)**2
+		fig = plt.figure()
+		ax = fig.add_subplot(111, projection="3d")
+		u, v = np.mgrid[0:2*np.pi:50j, 0:np.pi:25j]
+		xs = np.cos(u) * np.sin(v)
+		ys = np.sin(u) * np.sin(v)
+		zs = np.cos(v)
+		ax.plot_surface(xs, ys, zs, color="c", alpha=0.2)
+		# Draw vector
+		ax.quiver(0, 0, 0, x, y, z, color="r", linewidth=2)
+		# Labels
+		ax.set_xlabel("X (Real Part)")
+		ax.set_ylabel("Y (Imaginary Part)")
+		ax.set_zlabel("Z (Probability Difference)")
+		ax.set_title("Bell Basis Representation")
+		plt.show()
 
 	def show_bloch_sphere(self, country):
 		print(self.bloch_window)
@@ -195,25 +289,22 @@ class World:
 		circ = self.get_circuit().qc
 		qc = circ.copy()
   
-		# measurements = [inst for inst in qc.data if inst[0].name == 'measure']
-
-		# if measurements:
-		# 	print(f"Measurement operations found: {measurements}")
-		# else:
-		# 	print("No measurement operations in the circuit.")
-		# qc.remove_all_measurements()
 		# print(len(country.qubits))
 		for i, qubit in enumerate(country.qubits):
-			bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
-			plot_bloch_vector(bloch_vector, ax=axes[i])
+			if qubit not in self.get_circuit().entanglements:
+				bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
+				plot_bloch_vector(bloch_vector, ax=axes[i])
+			else:
+				# Calculate the entangled Bloch vector
+				entangled_bloch_vector = self.calculate_entangled_bloch_vector(qubit, self.get_circuit().entanglements[qubit])
+				self.plot_bell_vector(entangled_bloch_vector, ax=axes[i])
+				
 
 		# Embed Matplotlib figure in Tkinter window
 		from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 		canvas = FigureCanvasTkAgg(fig, master=self.bloch_window)
 		canvas.draw()
 		canvas.get_tk_widget().pack()
-		# Ensure window stays open
-		# self.bloch_window.protocol("WM_DELETE_WINDOW", self.close_bloch_window)
 
 	def close_bloch_window(self):
 		print("losing", self.bloch_window)
@@ -268,9 +359,10 @@ class World:
 			continent.render(self)
 		for edge in self.country_graph.edges():
 			self.render_edge(*edge)
+
+		self.render_entanglement_edges()
 		for country in self.get_all_countries():
 			country.render(self, country.name == self.selection)
-
 		self.canvas.tag_raise("move")
 		self.root.update()
 

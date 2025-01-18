@@ -9,6 +9,7 @@ class GameCircuit:
     def __init__(self, qubits):
         self.size = qubits
         self.qc = QuantumCircuit(qubits, qubits)
+        self.entanglements = {}
     
     def apply_single_gate(self, gate, qubit):
         if qubit < 0 or qubit > self.size:
@@ -75,6 +76,8 @@ class GameCircuit:
             pass
         else:
             print(f"[WARNING] Invalid gate: {gate}")
+        self.entanglements[control] = target
+        self.entanglements[target] = control
 
 
     def apply_swap(self, qubit1, qubit2):
