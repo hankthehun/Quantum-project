@@ -8,13 +8,16 @@ Argentina, 1, South America, 0.25, 0.57
 Brazil, 1, South America, 0.3, 0.44
 Peru, 1, South America, 0.21, 0.46
 Venezuela, 1, South America, 0.23, 0.38
+Congo, 1, Africa, 0.52, 0.5
 East Africa, 1, Africa, 0.59, 0.47
 North Africa, 1, Africa, 0.48, 0.41
 South Africa, 1, Africa, 0.54, 0.61
 Madagascar, 1, Africa, 0.63, 0.6
 British Isles, 1, Europe, 0.4, 0.17
 Scandinavia, 1, Europe, 0.49, 0.12
-Continental Europe, 1, Europe, 0.46, 0.25
+Southern Europe, 1, Europe, 0.46, 0.3
+Central Europe, 1, Europe, 0.46, 0.24
+Eastern Europe, 1, Europe, 0.54, 0.24
 Russia, 1, Europe, 0.62, 0.16
 South-East Asia, 1, Asia, 0.8, 0.37
 Siberia, 1, Asia, 0.77, 0.1
@@ -26,7 +29,7 @@ Central Asia, 1, Asia, 0.7, 0.24
 Australia, 1, Oceania, 0.9, 0.58
 New-Guinea, 1, Oceania, 0.92, 0.46
 Malaysia, 1, Oceania, 0.81, 0.49
-Antarctica, 1, Antarctica, 0.5, 0.7
+Antarctica, 2, Antarctica, 0.5, 0.7
 
 
 
@@ -47,18 +50,23 @@ Brazil, Peru
 Brazil, Argentina
 Argentina, Peru
 Brazil, North Africa
+North Africa, Congo
 North Africa, East Africa
+Congo, East Africa
 East Africa, South Africa
 South Africa, Madagascar
 Madagascar, East Africa
-North Africa, South Africa
-North Africa, Continental Europe
+Congo, South Africa
+North Africa, Southern Europe
 British Isles, Scandinavia
 British Isles, Greenland
 Greenland, Scandinavia
-British Isles, Continental Europe
-Continental Europe, Scandinavia
-Continental Europe, Russia
+British Isles, Central Europe
+Central Europe, Scandinavia
+Central Europe, Southern Europe
+Central Europe, Eastern Europe
+Southern Europe, Eastern Europe
+Eastern Europe, Russia
 Scandinavia, Russia
 Russia, Siberia
 Siberia, Japan
@@ -70,7 +78,7 @@ China, Central Asia
 Middle-East, Central Asia
 North Africa, Middle-East
 East Africa, Middle-East
-Continental Europe, Middle-East
+Southern Europe, Middle-East
 China, India
 China, South-East Asia
 India, South-East Asia

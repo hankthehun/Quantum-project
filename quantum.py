@@ -96,7 +96,6 @@ class GameCircuit:
 
         # Execute the circuit using the Aer simulator
         simulator = AerSimulator()
-        self.qc = transpile(self.qc, simulator)
 
         # Run and get counts
         result = simulator.run(self.qc, shots=1).result()
