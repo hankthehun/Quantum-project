@@ -94,13 +94,16 @@ class AttackingMove:
 
 	def select_country(self, world, country):
 		if self.country1 == "":
-			self.country1 = country
-			if world.get_country(self.country1).lost_battle:
+			if world.get_country(country).lost_battle:
 				world.show_temporary_message("This country already lost a battle,"
 											 " select a new country", "red", 2000)
-				self.country1 = ""
 				return False
-			return True
+			if world.is_neighbor_with_opponent(country):
+				self.country1 = country
+				return True
+			else:
+				world.show_temporary_message("Select a country neighbor with the opponent", "red", 2000)
+				return False
 		if world.are_different_owners_and_connected(self.country1, country):
 			self.country2 = country
 			return True
@@ -146,7 +149,10 @@ class TroopSwap:
 
 	def select_country(self, world, country):
 		if self.country1 == "":
-			self.country1 = country
+			if world.is_neighbor_with_allies(country):
+				self.country1 = country
+			else:
+				world.show_temporary_message("Select a country with allied neighbors", "red", 2000)
 			return False
 		if world.are_connected(self.country1, country):
 			self.country2 = country

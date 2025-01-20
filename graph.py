@@ -197,6 +197,21 @@ class World:
 
 		return c1.owner != c2.owner and self.country_graph.has_edge(country1, country2)
 
+	def is_neighbor_with_opponent(self, country):
+		owner = self.get_country(country).owner
+		for c in self.country_graph.neighbors(country):
+			if self.get_country(c).owner != owner:
+				return True
+		return False
+
+	def is_neighbor_with_allies(self, country):
+		owner = self.get_country(country).owner
+		for c in self.country_graph.neighbors(country):
+			if self.get_country(c).owner == owner:
+				return True
+		return False
+
+
 
 	def show_temporary_message(self, text, color, time):
 		self.canvas.create_rectangle(0, self.size*3//8 - 20, self.size, self.size*3//8 + 20, fill="white", tags="temporary")
