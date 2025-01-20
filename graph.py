@@ -4,6 +4,7 @@ from tkinter import *
 from PIL import Image, ImageTk
 
 COLORS = ["gray", "blue", "red"]
+LOST_BATTLE_COLORS = ["gray", "#79a0ff", "#fd8f8f"]
 
 # Class storing all the attributes of a continent
 class Continent:
@@ -40,6 +41,7 @@ class Country:
 		self.x = x					# x position on the world map
 		self.y = y					# y position on the world map
 		self.owner = owner			# player owning the country
+		self.lost_battle = False
 
 	def is_owned(self, player):
 		return self.owner == player
@@ -56,7 +58,10 @@ class Country:
 		label = f"country:{self.name.replace(' ', '')}"
 		world.canvas.delete(label)
 		world.canvas.delete(f"{label}-title")
-		world.canvas.create_oval(x - size, y - size, x + size, y + size, fill=COLORS[self.owner], tags=label)
+		if self.lost_battle:
+			world.canvas.create_oval(x - size, y - size, x + size, y + size, fill=LOST_BATTLE_COLORS[self.owner], tags=label)
+		else:
+			world.canvas.create_oval(x - size, y - size, x + size, y + size, fill=COLORS[self.owner], tags=label)
 		if selected:
 			world.canvas.create_text(x, y - size - 10, text=self.name, font=("Helvetica", 10), tags=f"{label}-title")
 		world.canvas.tag_bind(label, "<Button-1>", lambda e: world.select(self.name))
@@ -184,6 +189,14 @@ class World:
 
 		# Check if the two nodes are connected in this subgraph
 		return nx.has_path(subgraph, country1, country2)
+
+
+	def are_different_owners_and_connected(self, country1, country2):
+		c1 = self.get_country(country1)
+		c2 = self.get_country(country2)
+
+		return c1.owner != c2.owner and self.country_graph.has_edge(country1, country2)
+
 
 	def show_temporary_message(self, text, color, time):
 		self.canvas.create_text(self.size//2, self.size*3//8, text=text, fill=color, tags="temporary", font=("Helvetica", 20))

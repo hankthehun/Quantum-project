@@ -1,3 +1,4 @@
+import random
 from quantum import *
 from moves import *
 from graph import *
@@ -20,6 +21,10 @@ class GameInstance:
         self.current_player = 0
         self.next_step_button = None
         self.troop_swap = None
+        self.attacking_move = None
+        self.defense_iteration = False
+        self.selected_basis = None
+
 
     def confirm(self):
         self.confirmed = True
@@ -47,6 +52,31 @@ class GameInstance:
             move.render(self.world, x, y, lambda m: self.select_move(m))
         self.world.root.update()
 
+    def render_basis(self):
+        self.world.canvas.delete("basis")
+        self.world.canvas.create_text(80, 620, text="Measurement Basis", font=("Helvetica", 12, "bold"),
+                                      fill="black", tags="basis")
+
+        render_positions = get_move_render_positions(30, 650, len(self.current_moves))
+
+        for i, move in enumerate(self.current_moves):
+            x, y = render_positions[i]
+            move.render_measurement_basis(self.world, x, y, lambda m=move: self.select_basis(m))
+
+        self.world.root.update()
+
+
+    def select_basis(self, move):
+        if move.selected:
+            return
+        self.world.allow_selection(True, self.current_player)
+        self.selected_move = move
+        self.selected_basis = move.basis
+        for m in self.current_moves:
+            m.set_selected(m == move)
+        self.render_basis()
+
+
     def select_move(self, move):
         if move.selected:
             return
@@ -69,6 +99,47 @@ class GameInstance:
         self.selected_move = None
         self.world.allow_selection(False)
         self.world.render()
+
+
+    def execute_attacking_move(self, attacking_move):
+        print(attacking_move)
+        attacking_country = self.world.get_country(attacking_move.country1)
+        defending_country = self.world.get_country(attacking_move.country2)
+
+        # # ACTUAL CODE:
+        # attacking_country_measurement = self.circuit.measure_in_basis(attacking_country.qubits, self.selected_basis)
+        # defending_country_measurement = self.circuit.measure_in_basis(defending_country.qubits, self.selected_basis)
+        #
+        # if attacking_country_measurement > defending_country_measurement:
+        #     print(f"Player {self.current_player} won the attack")
+        #     defending_country.owner = self.current_player
+        #
+        # else:
+        #     print(f"Player {self.current_player} lost the attack")
+        # attacking_country.lost_battle = True
+
+
+        # # TEMP CODE:
+
+        random_number = random.random()
+
+        if random_number > 0.5:
+            print(f"Player {self.current_player} won the attack")
+            defending_country.owner = self.current_player
+
+        else:
+            print(f"Player {self.current_player} lost the attack")
+            attacking_country.lost_battle = True
+
+        self.current_moves.clear()
+        self.world.selection = ""
+        self.selected_move = None
+        self.selected_basis = None
+        self.attacking_move = None
+        self.world.allow_selection(False)
+        self.world.render()
+
+        self.attack_phase()
 
 
     def execute_troop_swap(self, troop_swap):
@@ -104,7 +175,78 @@ class GameInstance:
                             self.world.allow_selection(True, self.current_player, True)
             self.execute_later(self.place_troops_iteration, 50)
         else:
+            self.attack_phase()
+
+
+    def select_attacking_country_iteration(self):
+        self.world.allow_selection(True, self.current_player, False)
+
+        if self.should_continue:
+            self.attacking_move.render_selection(self.world)
+
+            if self.world.selection.strip() != "":
+                self.ask_for_confirmation()
+
+                if self.confirmed:
+                    self.reset_confirmation()
+
+                    if self.attacking_move.select_country(self.world, self.world.selection):
+                        self.defense_iteration = True
+                        self.select_defending_country_iteration()
+
+            if not self.defense_iteration:
+                self.execute_later(self.select_attacking_country_iteration, 50)
+
+        else:
             self.move_troops()
+
+
+    def select_defending_country_iteration(self):
+        self.world.allow_selection(True, self.current_player, True)
+
+        if self.should_continue:
+            self.attacking_move.render_selection(self.world)
+
+            if self.world.selection.strip() != "":
+                self.ask_for_confirmation()
+
+                if self.confirmed:
+                    self.reset_confirmation()
+
+                    if self.attacking_move.select_country(self.world, self.world.selection):
+                        self.defense_iteration = False
+                        self.select_measuring_basis_iteration()
+
+            if self.defense_iteration:
+                self.execute_later(self.select_defending_country_iteration, 50)
+
+        else:
+            self.move_troops()
+
+
+    def select_measuring_basis_iteration(self):
+        if self.should_continue:
+            self.render_basis()
+            self.ask_for_confirmation()
+
+            if self.confirmed:
+                self.reset_confirmation()
+
+                if self.confirm_button is None:
+                    self.attacking_move.basis = self.selected_basis
+                    self.execute_attacking_move(self.attacking_move)
+                    return
+
+            self.execute_later(self.select_measuring_basis_iteration, 50)
+
+        else:
+            self.move_troops()
+
+
+    def reset_battles(self):
+        for country in self.world.get_all_countries():
+            country.lost_battle = False
+
 
     def move_troops_iteration(self):
         if self.should_continue:
@@ -151,19 +293,27 @@ class GameInstance:
         self.place_troops_iteration()
 
     def move_troops(self):
+        self.reset_battles()
         self.setup_turn_phase(3)
         self.troop_swap = TroopSwap()
         self.world.allow_selection(True, self.current_player)
-        self.world.canvas.delete("move")
+        self.world.canvas.delete("attack")
         self.move_troops_iteration()
+
+    def attack_phase(self):
+        self.setup_turn_phase(2)
+        self.attacking_move = AttackingMove()
+        self.current_moves = get_player_attacking_moves()
+        self.world.canvas.delete("move")
+        self.select_attacking_country_iteration()
 
     def switch_player(self):
         self.current_player = (self.current_player % 2) + 1
 
     def play(self):
-            self.current_player = 1
-            self.place_troops()
-            self.world.root.mainloop()
+        self.current_player = 1
+        self.place_troops()
+        self.world.root.mainloop()
 
 
 
