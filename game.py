@@ -106,30 +106,20 @@ class GameInstance:
         attacking_country = self.world.get_country(attacking_move.country1)
         defending_country = self.world.get_country(attacking_move.country2)
 
-        # # ACTUAL CODE:
-        # attacking_country_measurement = self.circuit.measure_in_basis(attacking_country.qubits, self.selected_basis)
-        # defending_country_measurement = self.circuit.measure_in_basis(defending_country.qubits, self.selected_basis)
+        # ACTUAL CODE:
+        attacking_country_measurement = self.circuit.measure_in_basis(attacking_country.qubits, self.selected_basis)
+        defending_country_measurement = self.circuit.measure_in_basis(defending_country.qubits, self.selected_basis)
         #
-        # if attacking_country_measurement > defending_country_measurement:
-        #     print(f"Player {self.current_player} won the attack")
-        #     defending_country.owner = self.current_player
-        #
-        # else:
-        #     print(f"Player {self.current_player} lost the attack")
-        # attacking_country.lost_battle = True
-
-
-        # # TEMP CODE:
-
-        random_number = random.random()
-
-        if random_number > 0.5:
+        if attacking_country_measurement > defending_country_measurement:
             print(f"Player {self.current_player} won the attack")
             defending_country.owner = self.current_player
 
         else:
             print(f"Player {self.current_player} lost the attack")
-            attacking_country.lost_battle = True
+        attacking_country.lost_battle = True
+
+
+
 
         self.current_moves.clear()
         self.world.selection = ""

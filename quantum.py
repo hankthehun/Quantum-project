@@ -91,12 +91,8 @@ class GameCircuit:
         elif basis != 'Z':
             raise ValueError("Basis must be 'X', 'Y', or 'Z'")
 
-        # Add a classical bit for measurement
-        self.qc.add_register(1)
-        classical_bit = self.qc.num_clbits - 1  # Last classical bit in the circuit
-
         # Measure the qubit
-        self.qc.measure(qubit_index, classical_bit)
+        self.qc.measure(qubit_index, qubit_index)
 
         # Execute the circuit using the Aer simulator
         simulator = AerSimulator()
