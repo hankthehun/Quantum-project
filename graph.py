@@ -74,8 +74,8 @@ class Country:
 		if selected:
 			world.canvas.create_text(x, y - size - 10, text=self.name, font=("Helvetica", 10), tags=f"{label}-title")
 		world.canvas.tag_bind(label, "<Button-1>", lambda e: world.select(self.name))
-		world.canvas.tag_bind(label, "<Enter>", lambda e: world.show_bloch_sphere(self))
-		world.canvas.tag_bind(label, "<Leave>", lambda e: world.close_bloch_window())
+		world.canvas.tag_bind(label, "<Button-3>", lambda e: world.show_bloch_sphere(self))
+		world.canvas.tag_bind(label, "<ButtonRelease-3>", lambda e: world.close_bloch_window())
 
 # Class storing all the continents and country graph
 class World:
@@ -337,6 +337,7 @@ class World:
 
 	def close_bloch_window(self):
 		print("losing", self.bloch_window)
+		plt.close('all')
 		if self.bloch_window is not None:
 			self.bloch_window.destroy()
 			self.bloch_window = None
