@@ -85,6 +85,7 @@ class World:
 		self.continents = continents		# A dict containing all the continents
 		self.root = Tk()					# The tkinter root object
 		self.root.title("Quantum Risk")
+		self.root.bind("<Tab>", lambda e: self.show_circuit())
 		self.canvas = Canvas(self.root, width=size, height=int(size*0.75)) # The canvas
 		self.canvas.pack()
 		self.selection = ""					# The name of the selected country
@@ -96,12 +97,22 @@ class World:
 		image.thumbnail((size, int(size * 0.75)), Image.Resampling.LANCZOS)
 		self.background = ImageTk.PhotoImage(image)		# The background
 		self.circuit = None
+		self.circuit_window = None
   
 	def set_circuit(self, circuit):
 		self.circuit = circuit
   
 	def get_circuit(self):
 		return self.circuit
+
+	def show_circuit(self):
+		if self.circuit is not None:
+			self.circuit_window = Toplevel(self.root)
+			self.circuit_window.title(f"Current Quantum Circuit")
+			circuit_plt = self.circuit.qc.draw(output='mpl')
+			canvas = FigureCanvasTkAgg(circuit_plt, master=self.circuit_window)
+			canvas.draw()
+			canvas.get_tk_widget().pack()
 
 	def get_country(self, name):
 		return self.country_graph.nodes[name]['country']
@@ -330,7 +341,6 @@ class World:
 				
 
 		# Embed Matplotlib figure in Tkinter window
-		from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 		canvas = FigureCanvasTkAgg(fig, master=self.bloch_window)
 		canvas.draw()
 		canvas.get_tk_widget().pack()
