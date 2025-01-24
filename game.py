@@ -69,9 +69,14 @@ class GameInstance:
             bloch_vector = self.world.estimate_bloch_vector_for_qubit(qubit)
             plot_bloch_vector(bloch_vector, ax=axes[i + len(qubit_list_1)])
 
+        fig.text(0.05, 0.75, self.attacking_move.country1, va='center', ha='center', fontsize=12, color=COLORS[self.current_player], rotation=90)
+        fig.text(0.05, 0.28, self.attacking_move.country2, va='center', ha='center', fontsize=12, color=COLORS[self.current_player%2 + 1], rotation=90)
+        fig.suptitle(f"Attack (in the {self.attacking_move.selected_basis} basis)", fontsize=16)
+
         self.attack_canvas = FigureCanvasTkAgg(fig, master=self.attack_window)
         self.attack_canvas.draw()
-        self.attack_canvas.get_tk_widget().pack()
+        widget = self.attack_canvas.get_tk_widget()
+        widget.pack()
         self.world.root.update()
         self.world.root.update_idletasks()
 
