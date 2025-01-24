@@ -71,7 +71,7 @@ class GameInstance:
 
         fig.text(0.05, 0.75, self.attacking_move.country1, va='center', ha='center', fontsize=12, color=COLORS[self.current_player], rotation=90)
         fig.text(0.05, 0.28, self.attacking_move.country2, va='center', ha='center', fontsize=12, color=COLORS[self.current_player%2 + 1], rotation=90)
-        fig.suptitle(f"Attack (in the {self.attacking_move.selected_basis} basis)", fontsize=16)
+        fig.suptitle(f"Attack ({self.attacking_move.selected_basis_1} | {self.attacking_move.selected_basis_2})", fontsize=16)
 
         self.attack_canvas = FigureCanvasTkAgg(fig, master=self.attack_window)
         self.attack_canvas.draw()
@@ -109,7 +109,10 @@ class GameInstance:
 
     def select_basis(self, basis):
         self.world.allow_selection(False, self.current_player)
-        self.attacking_move.selected_basis = basis
+        if basis[1] == '1':
+            self.attacking_move.selected_basis_1 = basis[0:1]
+        else:
+            self.attacking_move.selected_basis_2 = basis[0:1]
         self.render_attacking_move()
 
     def render_attacking_move(self):
@@ -150,8 +153,8 @@ class GameInstance:
         time.sleep(5)
 
         # ACTUAL CODE:
-        attacking_country_measurement = self.circuit.measure_in_basis(attacking_qubit, attacking_move.selected_basis)
-        defending_country_measurement = self.circuit.measure_in_basis(defending_qubit, attacking_move.selected_basis)
+        attacking_country_measurement = self.circuit.measure_in_basis(attacking_qubit, attacking_move.selected_basis_1)
+        defending_country_measurement = self.circuit.measure_in_basis(defending_qubit, attacking_move.selected_basis_2)
         #
         if attacking_country_measurement > defending_country_measurement:
             print(f"Player {self.current_player} won the attack")

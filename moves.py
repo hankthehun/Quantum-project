@@ -68,7 +68,8 @@ def get_move_render_positions(x, y, amount):
 
 class AttackingMove:
 	def __init__(self):
-		self.selected_basis = ""
+		self.selected_basis_1 = ""
+		self.selected_basis_2 = ""
 		self.country1 = ""
 		self.country2 = ""
 		self.qubit1 = 0
@@ -108,17 +109,18 @@ class AttackingMove:
 				world.canvas.create_oval(x1 - 5, y1 - 5, x1 + 5, y1 + 5, fill="green", tags="attack")
 
 
-	def render_measurement_basis(self, world, x, y, click_callback, basis):
+	def render_measurement_basis(self, world, x, y, click_callback, basis, second=False):
 		label = f"basis-{str(uuid.uuid4())}"
-		size = 18 if self.selected_basis == basis else 15
-		width = 3 if self.selected_basis == basis else 2
+		size = 18 if (self.selected_basis_2 if second else self.selected_basis_1) == basis else 15
+		width = 3 if (self.selected_basis_2 if second else self.selected_basis_1) == basis else 2
 
 		world.canvas.create_rectangle(x - size, y - size, x + size, y + size, outline="black", fill="white",
 									  tags=("attack", label), width=width)
 		world.canvas.create_text(x, y, text=f"{basis}", font=("Helvetica", 18, "bold"), fill="black",
 								 tags=("attack", label + "-text"))
-		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(basis))
-		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(basis))
+		basis_string = basis + ("2" if second else "1")
+		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(basis_string))
+		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(basis_string))
 
 	def render(self, world, x, y, click_callback):
 		attack_basis = ["X", "Y", "Z"]
@@ -126,16 +128,19 @@ class AttackingMove:
 		self.render_attack_arrow(world)
 
 		if self.country1 != "" and self.country2 != "":
-			world.canvas.create_text(x + 40, y - 40, text="Measurement Basis", font=("Helvetica", 12, "bold"),
+			world.canvas.create_text(x + 40, y - 40, text="Attacker Basis", font=("Helvetica", 12, "bold"),
+									 fill="black", tags="attack")
+			world.canvas.create_text(x + 40, y + 40, text="Defender Basis", font=("Helvetica", 12, "bold"),
 									 fill="black", tags="attack")
 			for i, basis in enumerate(attack_basis):
-				self.render_measurement_basis(world, x + i*40, y, click_callback, basis)
+				self.render_measurement_basis(world, x + i*40, y, click_callback, basis, False)
+				self.render_measurement_basis(world, x + i * 40, y + 80, click_callback, basis, True)
 		world.root.update()
 
 
 
 	def __str__(self, ):
-		return f"Attack ({self.selected_basis} basis): {self.country1}({self.qubit1}) --> {self.country2}({self.qubit2})"
+		return f"Attack ({self.selected_basis_1} | {self.selected_basis_2}): {self.country1}({self.qubit1}) --> {self.country2}({self.qubit2})"
 
 class TroopSwap:
 	def __init__(self):
