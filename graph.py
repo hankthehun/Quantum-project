@@ -1,16 +1,13 @@
-import networkx as nx
 import random
 from tkinter import *
-from PIL import Image, ImageTk
+
 import matplotlib.pyplot as plt
-from qiskit import QuantumCircuit, transpile
-from qiskit_aer import AerSimulator
-
-from qiskit.quantum_info import Statevector, partial_trace, DensityMatrix
-from qiskit.visualization import plot_bloch_vector
-
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import networkx as nx
 import numpy as np
+from PIL import Image, ImageTk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from qiskit.visualization import plot_bloch_vector
+from qiskit_aer import AerSimulator
 
 COLORS = ["gray", "blue", "red"]
 LOST_BATTLE_COLORS = ["gray", "#79a0ff", "#fd8f8f"]
@@ -303,7 +300,6 @@ class World:
 	def show_bloch_sphere(self, country):
 		print(self.bloch_window)
 		if self.bloch_window is not None and self.current_country == country:
-			print("enter")
 			return
 		# Create new window
 		# self.close_bloch_window()
@@ -315,7 +311,7 @@ class World:
 		self.bloch_window.geometry("600x400+100+100")
 
 		# Create Matplotlib figure and axes
-		fig = plt.figure(figsize=(4 * len(country.qubits), 4))
+		fig = plt.figure(figsize=(4*len(country.qubits), 4))
 		# print(len(country.qubits))
 		axes = []
 		for i in range(len(country.qubits)):
@@ -326,17 +322,15 @@ class World:
 		qc = circ.copy()
   
 		# print(len(country.qubits))
-		print("entanglements: ", self.get_circuit().entanglements)
 		print(len(country.qubits))
 		for i, qubit in enumerate(country.qubits):
 			if qubit not in self.get_circuit().entanglements:
 				bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
-				print("unentangled")
+				print(f"Norm: {np.linalg.norm(bloch_vector)}")
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
 				# Calculate the entangled Bloch vector
 				entangled_bloch_vector = self.calculate_entangled_bloch_vector(qubit, self.get_circuit().entanglements[qubit])
-				print("Bell vector: ", entangled_bloch_vector)
 				self.plot_bell_vector(entangled_bloch_vector, ax=axes[i])
 				
 
@@ -346,7 +340,6 @@ class World:
 		canvas.get_tk_widget().pack()
 
 	def close_bloch_window(self):
-		print("losing", self.bloch_window)
 		plt.close('all')
 		if self.bloch_window is not None:
 			self.bloch_window.destroy()
@@ -441,7 +434,7 @@ class World:
 		return nx.has_path(subgraph, country1, country2)
 
 
-	def are_different_owners_and_connected(self, country1, country2):
+	def are_different_owners_and_neighbors(self, country1, country2):
 		c1 = self.get_country(country1)
 		c2 = self.get_country(country2)
 

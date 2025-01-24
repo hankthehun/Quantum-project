@@ -1,7 +1,7 @@
-import random
-from quantum import *
-from moves import *
 from graph import *
+from moves import *
+from quantum import *
+import time
 
 PHASE_TITLES = ["Placing Troops", "Attacking", "Moving Troops"]
 PHASE_BUTTONS = ["Start Attacking", "End Attacks", "End Turn"]
@@ -25,7 +25,8 @@ class GameInstance:
         self.troop_swap = None
         self.attacking_move = None
         self.defense_iteration = False
-        self.selected_basis = None
+        self.attack_window = None
+        self.attack_canvas = None
 
 
     def confirm(self):
@@ -44,6 +45,52 @@ class GameInstance:
             self.confirm_button = Button(self.world.root, text="Confirm", command=lambda: self.confirm())
             self.confirm_button.pack()
 
+    def update_attack_window(self):
+        if self.attack_canvas is not None:
+            self.attack_canvas.get_tk_widget().destroy()
+
+        qubit_list_1 = self.world.get_country(self.attacking_move.country1).qubits
+        qubit_list_2 = self.world.get_country(self.attacking_move.country2).qubits
+        size = max(len(qubit_list_1), len(qubit_list_2))
+        fig = plt.figure(figsize=(4 * size, 8))
+        axes = []
+
+        for i in range(len(qubit_list_1)):
+            ax = fig.add_subplot(2, size, i + 1, projection="3d")
+            axes.append(ax)
+        for i in range(len(qubit_list_2)):
+            ax = fig.add_subplot(2, size, size + i + 1, projection="3d")
+            axes.append(ax)
+
+        for i, qubit in enumerate(qubit_list_1):
+            bloch_vector = self.world.estimate_bloch_vector_for_qubit(qubit)
+            plot_bloch_vector(bloch_vector, ax=axes[i])
+        for i, qubit in enumerate(qubit_list_2):
+            bloch_vector = self.world.estimate_bloch_vector_for_qubit(qubit)
+            plot_bloch_vector(bloch_vector, ax=axes[i + len(qubit_list_1)])
+
+        self.attack_canvas = FigureCanvasTkAgg(fig, master=self.attack_window)
+        self.attack_canvas.draw()
+        self.attack_canvas.get_tk_widget().pack()
+        self.world.root.update()
+        self.world.root.update_idletasks()
+
+    def show_attack_window(self):
+        if self.attack_window is None:
+            self.attack_window = Toplevel(self.world.root)
+            self.attack_window.title(f"Attack: {self.attacking_move.country1} -> {self.attacking_move.country2}")
+            self.attack_window.geometry("600x400+100+100")
+        self.update_attack_window()
+
+    def hide_attack_window(self):
+        plt.close('all')
+        if self.attack_canvas is not None:
+            self.attack_canvas.get_tk_widget().destroy()
+            self.attack_canvas = None
+        if self.attack_window is not None:
+            self.attack_window.destroy()
+            self.attack_window = None
+
     def render_moves(self):
         self.world.canvas.delete("move")
         self.world.canvas.create_text(110, 620, text="Available Gates", font=("Helvetica", 12, "bold"), fill="black", tags="move")
@@ -54,30 +101,14 @@ class GameInstance:
         self.world.circuit = self.circuit
         self.world.root.update()
 
-    def render_basis(self):
-        self.world.canvas.delete("basis")
-        self.world.canvas.create_text(80, 620, text="Measurement Basis", font=("Helvetica", 12, "bold"),
-                                      fill="black", tags="basis")
 
-        render_positions = get_move_render_positions(30, 650, len(self.current_moves))
+    def select_basis(self, basis):
+        self.world.allow_selection(False, self.current_player)
+        self.attacking_move.selected_basis = basis
+        self.render_attacking_move()
 
-        for i, move in enumerate(self.current_moves):
-            x, y = render_positions[i]
-            move.render_measurement_basis(self.world, x, y, lambda m=move: self.select_basis(m))
-
-        self.world.root.update()
-
-
-    def select_basis(self, move):
-        if move.selected:
-            return
-        self.world.allow_selection(True, self.current_player)
-        self.selected_move = move
-        self.selected_basis = move.basis
-        for m in self.current_moves:
-            m.set_selected(m == move)
-        self.render_basis()
-
+    def render_attacking_move(self):
+        self.attacking_move.render(self.world, 70, 620, lambda b: self.select_basis(b))
 
     def select_move(self, move):
         if move.selected:
@@ -107,10 +138,15 @@ class GameInstance:
         print(attacking_move)
         attacking_country = self.world.get_country(attacking_move.country1)
         defending_country = self.world.get_country(attacking_move.country2)
+        attacking_qubit = attacking_country.qubits[attacking_move.qubit1]
+        defending_qubit = defending_country.qubits[attacking_move.qubit2]
+
+        self.show_attack_window()
+        time.sleep(5)
 
         # ACTUAL CODE:
-        attacking_country_measurement = self.circuit.measure_in_basis(attacking_country.qubits, self.selected_basis)
-        defending_country_measurement = self.circuit.measure_in_basis(defending_country.qubits, self.selected_basis)
+        attacking_country_measurement = self.circuit.measure_in_basis(attacking_qubit, attacking_move.selected_basis)
+        defending_country_measurement = self.circuit.measure_in_basis(defending_qubit, attacking_move.selected_basis)
         #
         if attacking_country_measurement > defending_country_measurement:
             print(f"Player {self.current_player} won the attack")
@@ -120,17 +156,15 @@ class GameInstance:
             print(f"Player {self.current_player} lost the attack")
         attacking_country.lost_battle = True
 
-
-
+        self.update_attack_window()
+        time.sleep(5)
 
         self.current_moves.clear()
         self.world.selection = ""
-        self.selected_move = None
-        self.selected_basis = None
         self.attacking_move = None
         self.world.allow_selection(False)
         self.world.render()
-
+        self.hide_attack_window()
         self.attack_phase()
 
 
@@ -143,8 +177,8 @@ class GameInstance:
         self.world.render()
 
 
-    def execute_later(self, function, time):
-        self.world.root.after(time, function)
+    def execute_later(self, function, duration):
+        self.world.root.after(duration, function)
 
 
     def place_troops_iteration(self):
@@ -174,7 +208,7 @@ class GameInstance:
         self.world.allow_selection(True, self.current_player, False)
 
         if self.should_continue:
-            self.attacking_move.render_selection(self.world)
+            self.render_attacking_move()
 
             if self.world.selection.strip() != "":
                 self.ask_for_confirmation()
@@ -197,7 +231,7 @@ class GameInstance:
         self.world.allow_selection(True, self.current_player, True)
 
         if self.should_continue:
-            self.attacking_move.render_selection(self.world)
+            self.render_attacking_move()
 
             if self.world.selection.strip() != "":
                 self.ask_for_confirmation()
@@ -218,14 +252,13 @@ class GameInstance:
 
     def select_measuring_basis_iteration(self):
         if self.should_continue:
-            self.render_basis()
+            self.render_attacking_move()
             self.ask_for_confirmation()
 
             if self.confirmed:
                 self.reset_confirmation()
 
                 if self.confirm_button is None:
-                    self.attacking_move.basis = self.selected_basis
                     self.execute_attacking_move(self.attacking_move)
                     return
 
@@ -295,7 +328,6 @@ class GameInstance:
     def attack_phase(self):
         self.setup_turn_phase(2)
         self.attacking_move = AttackingMove()
-        self.current_moves = get_player_attacking_moves()
         self.world.canvas.delete("move")
         self.select_attacking_country_iteration()
 

@@ -94,21 +94,26 @@ class GameCircuit:
         elif basis != 'Z':
             raise ValueError("Basis must be 'X', 'Y', or 'Z'")
 
-        # Measure the qubit
-        self.qc.measure(qubit_index, qubit_index)
 
         # Execute the circuit using the Aer simulator
         simulator = AerSimulator()
 
+        circuit_copy = self.qc.copy()
+        circuit_copy.measure(qubit_index, qubit_index)
         # Run and get counts
-        result = simulator.run(self.qc, shots=1).result()
-        counts = result.get_counts(self.qc)
+        result = simulator.run(circuit_copy, shots=1).result()
+        counts = result.get_counts(circuit_copy)
 
         # Get the measurement result
         measurement_result = int(list(counts.keys())[0])  # '0' or '1'
 
         # Convert to +1 or -1
         observable = measurement_result * 2 - 1
+
+        self.qc.reset(qubit_index)
+        # Apply X gate to set it to |1⟩ if number is +1
+        if observable == +1:
+            self.qc.x(qubit_index)
 
         # Move the state back to the corresponding basis
         # Apply basis-changing gates
