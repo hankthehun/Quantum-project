@@ -171,11 +171,14 @@ class World:
 		# print(f"Bloch vector for qubit {t}: {bloch_vector}")
 		return bloch_vector
 
-	def render_entanglement_edges(self):
-		"""Render faint blue lines between countries that have entangled qubits."""
+	def render_entanglement_circles(self):
+		"""Render small purple dots for entangled countries"""
 		self.canvas.delete("entanglement")
+		if self.get_selected_country() is None:
+			return
 
-		entanglements = self.get_circuit().entanglements  # Dictionary of entangled qubit pairs
+		entangled_qubits = []
+		entangled_countries = []
 		qubit_to_country = {}
 
 		# Map qubits to their respective countries
@@ -183,16 +186,22 @@ class World:
 			for qubit in country.qubits:
 				qubit_to_country[qubit] = country
 
-		# Draw entanglement edges
-		for qubit1, qubit2 in entanglements.items():
-			if qubit1 in qubit_to_country and qubit2 in qubit_to_country:
-				country1 = qubit_to_country[qubit1]
-				country2 = qubit_to_country[qubit2]
+		for q in self.get_selected_country().qubits:
+			entangled_qubits = entangled_qubits + self.circuit.get_entangled_qubits(q)
 
-				x1, y1 = country1.x * self.size, country1.y * self.size
-				x2, y2 = country2.x * self.size, country2.y * self.size
+		if len(entangled_qubits) < 2:
+			return
 
-				self.canvas.create_line(x1, y1, x2, y2, fill="lightblue", width=2, dash=(5, 5), tags="entanglement")
+		for q in entangled_qubits:
+			c = qubit_to_country[q]
+			if c not in entangled_countries:
+				entangled_countries.append(c)
+
+		# Draw entanglement circles
+		for country in entangled_countries:
+			size = 35 if self.get_selected_country() == country else 25
+			x1, y1 = country.get_pos(self.size)
+			self.canvas.create_oval(x1 - size, y1 - size, x1 + size, y1 + size, fill="purple", outline="purple", tags="entanglement")
 
 	def calculate_entangled_bloch_vector(self, t1, t2):
 		circ = self.get_circuit().qc
@@ -289,7 +298,6 @@ class World:
 
 		# Draw vector
 		ax.quiver(0, 0, 0, x, y, z, color="r", linewidth=2)
-		print(x, y, z)
 		# Labels
 		ax.set_xlabel("X (Real Part)")
 		ax.set_ylabel("Y (Imaginary Part)")
@@ -298,7 +306,6 @@ class World:
 		# plt.show()
 
 	def show_bloch_sphere(self, country):
-		print(self.bloch_window)
 		if self.bloch_window is not None and self.current_country == country:
 			return
 		# Create new window
@@ -320,17 +327,15 @@ class World:
 
 		circ = self.get_circuit().qc
 		qc = circ.copy()
-  
-		# print(len(country.qubits))
-		print(len(country.qubits))
+
 		for i, qubit in enumerate(country.qubits):
-			if qubit not in self.get_circuit().entanglements:
+			entanglements = self.get_circuit().get_entangled_qubits(qubit)
+			if len(entanglements) < 2:
 				bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
-				print(f"Norm: {np.linalg.norm(bloch_vector)}")
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
 				# Calculate the entangled Bloch vector
-				entangled_bloch_vector = self.calculate_entangled_bloch_vector(qubit, self.get_circuit().entanglements[qubit])
+				entangled_bloch_vector = self.calculate_entangled_bloch_vector(entanglements[0], entanglements[1])
 				self.plot_bell_vector(entangled_bloch_vector, ax=axes[i])
 				
 
@@ -393,9 +398,10 @@ class World:
 		for edge in self.country_graph.edges():
 			self.render_edge(*edge)
 
-		self.render_entanglement_edges()
+		self.render_entanglement_circles()
 		for country in self.get_all_countries():
 			country.render(self, country.name == self.selection)
+
 		self.canvas.tag_raise("move")
 		self.root.update()
 
