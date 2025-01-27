@@ -6,9 +6,8 @@ import networkx as nx
 import numpy as np
 from PIL import Image, ImageTk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import itertools
-from qiskit.quantum_info import Statevector, partial_trace, DensityMatrix
-from qiskit.visualization import plot_bloch_vector, plot_state_qsphere
+from qiskit.quantum_info import DensityMatrix
+from qiskit.visualization import plot_bloch_vector, plot_state_qsphere, plot_bloch_multivector
 from qiskit_aer import AerSimulator
 
 COLORS = ["gray", "blue", "red"]
