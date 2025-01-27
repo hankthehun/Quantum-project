@@ -1,6 +1,7 @@
 from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 import numpy as np
+import networkx as nx
 
 PI_OVER_8 = np.pi / 8
 PI_OVER_4 = np.pi / 4
@@ -9,7 +10,14 @@ class GameCircuit:
     def __init__(self, qubits):
         self.size = qubits
         self.qc = QuantumCircuit(qubits, qubits)
-        self.entanglements = {}
+        self.entanglements = nx.Graph()
+        self.entanglements.add_nodes_from(range(qubits))
+
+    def get_entangled_qubits(self, index):
+        connected_components = nx.connected_components(self.entanglements)
+        for component in connected_components:
+            if index in component:
+                return list(component)
     
     def apply_single_gate(self, gate, qubit):
         if qubit < 0 or qubit > self.size:
@@ -76,8 +84,7 @@ class GameCircuit:
             pass
         else:
             print(f"[WARNING] Invalid gate: {gate}")
-        self.entanglements[control] = target
-        self.entanglements[target] = control
+        self.entanglements.add_edge(control, target)
 
 
     def apply_swap(self, qubit1, qubit2):
@@ -85,37 +92,50 @@ class GameCircuit:
 
 
     def measure_in_basis(self, qubit_index, basis):
-        # Apply basis-changing gates
-        if basis == 'X':
-            self.qc.h(qubit_index)  # Rotate to Z basis
-        elif basis == 'Y':
-            self.qc.sdg(qubit_index)  # Rotate to X basis
-            self.qc.h(qubit_index)  # Rotate to Z basis
-        elif basis != 'Z':
-            raise ValueError("Basis must be 'X', 'Y', or 'Z'")
+        # Get all the entangled qubits and remove them from the entanglement graph
+        list_to_measure = self.get_entangled_qubits(qubit_index)
+        self.entanglements.remove_edges_from((u, v) for u in list_to_measure for v in list_to_measure if self.entanglements.has_edge(u, v))
 
-        # Measure the qubit
-        self.qc.measure(qubit_index, qubit_index)
+        # For each qubit, apply basis-changing gates
+        for qubit in list_to_measure:
+            if basis == 'X':
+                self.qc.h(qubit)  # Rotate to Z basis
+            elif basis == 'Y':
+                self.qc.sdg(qubit)  # Rotate to X basis
+                self.qc.h(qubit)  # Rotate to Z basis
+            elif basis != 'Z':
+                raise ValueError("Basis must be 'X', 'Y', or 'Z'")
 
-        # Execute the circuit using the Aer simulator
+        # Create a copy of the circuit and add measurements
+        circuit_copy = self.qc.copy()
+        for i, qubit in enumerate(list_to_measure):
+            circuit_copy.measure(qubit, i)
+
+        # Execute the copy circuit using the Aer simulator
         simulator = AerSimulator()
-
-        # Run and get counts
-        result = simulator.run(self.qc, shots=1).result()
-        counts = result.get_counts(self.qc)
+        result = simulator.run(circuit_copy, shots=1).result()
+        counts = result.get_counts(circuit_copy)
+        return_value = 0
 
         # Get the measurement result
-        measurement_result = int(list(counts.keys())[0])  # '0' or '1'
+        for i, qubit in enumerate(list_to_measure):
+            measurement_result = int(list(counts.keys())[0][self.size - i - 1])  # '0' or '1'
 
-        # Convert to +1 or -1
-        observable = measurement_result * 2 - 1
+            # Convert to +1 or -1
+            observable = measurement_result * 2 - 1
+            if qubit == qubit_index:
+                return_value = observable
 
-        # Move the state back to the corresponding basis
-        # Apply basis-changing gates
-        if basis == 'X':
-            self.qc.h(qubit_index)  # Rotate to X basis
-        elif basis == 'Y':
-            self.qc.h(qubit_index)  # Rotate to X basis
-            self.qc.s(qubit_index)  # Rotate to Y basis
+            # Set the qubit to |0⟩ if observable is -1, else |1⟩
+            self.qc.reset(qubit)
+            if observable == +1:
+                self.qc.x(qubit)
 
-        return observable
+            # Move the state back to the corresponding basis
+            if basis == 'X':
+                self.qc.h(qubit)  # Rotate to X basis
+            elif basis == 'Y':
+                self.qc.h(qubit)  # Rotate to X basis
+                self.qc.s(qubit)  # Rotate to Y basis
+
+        return return_value

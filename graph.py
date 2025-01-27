@@ -1,15 +1,15 @@
-import networkx as nx
 import random
 from tkinter import *
-from PIL import Image, ImageTk
+
 import matplotlib.pyplot as plt
-from qiskit import QuantumCircuit, transpile
-from qiskit_aer import AerSimulator
+import networkx as nx
+import numpy as np
+from PIL import Image, ImageTk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import itertools
 from qiskit.quantum_info import Statevector, partial_trace, DensityMatrix
 from qiskit.visualization import plot_bloch_vector, plot_state_qsphere
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import numpy as np
+from qiskit_aer import AerSimulator
 
 COLORS = ["gray", "blue", "red"]
 LOST_BATTLE_COLORS = ["gray", "#79a0ff", "#fd8f8f"]
@@ -173,11 +173,14 @@ class World:
 		# print(f"Bloch vector for qubit {t}: {bloch_vector}")
 		return bloch_vector
 
-	def render_entanglement_edges(self):
-		"""Render faint blue lines between countries that have entangled qubits."""
+	def render_entanglement_circles(self):
+		"""Render small purple dots for entangled countries"""
 		self.canvas.delete("entanglement")
+		if self.get_selected_country() is None:
+			return
 
-		entanglements = self.get_circuit().entanglements  # Dictionary of entangled qubit pairs
+		entangled_qubits = []
+		entangled_countries = []
 		qubit_to_country = {}
 
 		# Map qubits to their respective countries
@@ -185,21 +188,24 @@ class World:
 			for qubit in country.qubits:
 				qubit_to_country[qubit] = country
 
-		# Draw entanglement edges
-		for qubit1, qubit2 in entanglements.items():
-			if qubit1 in qubit_to_country and qubit2 in qubit_to_country:
-				country1 = qubit_to_country[qubit1]
-				country2 = qubit_to_country[qubit2]
+		for q in self.get_selected_country().qubits:
+			entangled_qubits = entangled_qubits + self.circuit.get_entangled_qubits(q)
 
-				x1, y1 = country1.x * self.size, country1.y * self.size
-				x2, y2 = country2.x * self.size, country2.y * self.size
+		if len(entangled_qubits) < 2:
+			return
 
-				self.canvas.create_line(x1, y1, x2, y2, fill="lightblue", width=2, dash=(5, 5), tags="entanglement")
+		for q in entangled_qubits:
+			c = qubit_to_country[q]
+			if c not in entangled_countries:
+				entangled_countries.append(c)
 
+		# Draw entanglement circles
+		for country in entangled_countries:
+			size = 35 if self.get_selected_country() == country else 25
+			x1, y1 = country.get_pos(self.size)
+			self.canvas.create_oval(x1 - size, y1 - size, x1 + size, y1 + size, fill="purple", outline="purple", tags="entanglement")
 
-
-	def approximate_state_vector(self, qubit1, qubit2):
-		"""Approximate the state vector of two qubits."""
+	def calculate_density_matrix(self, qubit1, qubit2):
 		circ = self.get_circuit().qc
 		qc = circ.copy()
 		simulator = AerSimulator()
@@ -250,9 +256,7 @@ class World:
 
 
 	def show_bloch_sphere(self, country):
-		print(self.bloch_window)
 		if self.bloch_window is not None and self.current_country == country:
-			print("enter")
 			return
 		# Create new window
 		# self.close_bloch_window()
@@ -264,7 +268,7 @@ class World:
 		self.bloch_window.geometry("600x400+100+100")
 
 		# Create Matplotlib figure and axes
-		fig = plt.figure(figsize=(4 * len(country.qubits), 4))
+		fig = plt.figure(figsize=(4*len(country.qubits), 4))
 		# print(len(country.qubits))
 		axes = []
 		for i in range(len(country.qubits)):
@@ -273,18 +277,15 @@ class World:
 
 		circ = self.get_circuit().qc
 		qc = circ.copy()
-  
-		# print(len(country.qubits))
-		print("entanglements: ", self.get_circuit().entanglements)
-		print(len(country.qubits))
+
 		for i, qubit in enumerate(country.qubits):
-			if qubit not in self.get_circuit().entanglements:
+			entanglements = self.get_circuit().get_entangled_qubits(qubit)
+			if len(entanglements) < 2:
 				bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
-				print("unentangled")
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
-				# Calculate the entangled Bloch vector
-				rho = self.approximate_state_vector(qubit, self.get_circuit().entanglements[qubit])
+				# Calculate the entangled Bloch vector				
+				rho = self.calculate_density_matrix(qubit, self.get_circuit().get_entangled_qubits(qubit)[0])
 				print(rho)
 				fig = plot_state_qsphere(rho, show_state_phases = True, use_degrees = True)	
 
@@ -294,7 +295,6 @@ class World:
 		canvas.get_tk_widget().pack()
 
 	def close_bloch_window(self):
-		print("losing", self.bloch_window)
 		plt.close('all')
 		if self.bloch_window is not None:
 			self.bloch_window.destroy()
@@ -348,9 +348,10 @@ class World:
 		for edge in self.country_graph.edges():
 			self.render_edge(*edge)
 
-		self.render_entanglement_edges()
+		self.render_entanglement_circles()
 		for country in self.get_all_countries():
 			country.render(self, country.name == self.selection)
+
 		self.canvas.tag_raise("move")
 		self.root.update()
 
@@ -389,7 +390,7 @@ class World:
 		return nx.has_path(subgraph, country1, country2)
 
 
-	def are_different_owners_and_connected(self, country1, country2):
+	def are_different_owners_and_neighbors(self, country1, country2):
 		c1 = self.get_country(country1)
 		c2 = self.get_country(country2)
 

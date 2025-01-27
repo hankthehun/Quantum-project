@@ -65,32 +65,15 @@ def get_move_render_positions(x, y, amount):
 		positions.append((x + row*40, y + column*40))
 	return positions
 
-def get_player_attacking_moves():
-	moves = [None, None, None]
-
-	moveX = AttackingMove()
-	moveY = AttackingMove()
-	moveZ = AttackingMove()
-
-	moveX.basis = "X"
-	moveY.basis = "Y"
-	moveZ.basis = "Z"
-
-	moves[0] = moveX
-	moves[1] = moveY
-	moves[2] = moveZ
-
-	return moves
 
 class AttackingMove:
 	def __init__(self):
-		self.basis = ""
-		self.selected = False
+		self.selected_basis_1 = ""
+		self.selected_basis_2 = ""
 		self.country1 = ""
 		self.country2 = ""
 		self.qubit1 = 0
 		self.qubit2 = 0
-
 
 	def select_country(self, world, country):
 		if self.country1 == "":
@@ -104,41 +87,60 @@ class AttackingMove:
 			else:
 				world.show_temporary_message("Select a country neighbor with the opponent", "red", 2000)
 				return False
-		if world.are_different_owners_and_connected(self.country1, country):
+		if world.are_different_owners_and_neighbors(self.country1, country):
 			self.country2 = country
 			return True
 		world.show_temporary_message("Select a connected enemy country", "red", 2000)
 
-
-	def render_selection(self, world):
-		world.canvas.delete("selection")
-		world.canvas.delete("basis")
+	def render_attack_arrow(self, world):
 		if self.country1 != "":
-			x, y = world.get_country(self.country1).get_pos()
-			x = x * world.size
-			y = y * world.size
-			world.canvas.create_rectangle(x - 5, y - 5, x + 5, y + 5, fill="green", tags="selection")
+			x1, y1 = world.get_country(self.country1).get_pos(world.size)
+			if world.selection not in ["", self.country1]:
+				x2, y2 = world.get_selected_country().get_pos(world.size)
+				color = "green" if world.are_different_owners_and_neighbors(self.country1, world.selection) else "red"
+				world.canvas.create_line(x2, y2, x1, y1, fill=color, tags="attack", width=5, arrow="first",
+										 arrowshape=(20, 20, 10))
+			elif self.country2 != "":
+				x2, y2 = world.get_country(self.country2).get_pos(world.size)
+				color = "green" if world.are_different_owners_and_neighbors(self.country1, self.country2) else "red"
+				world.canvas.create_line(x2, y2, x1, y1, fill=color, tags="attack", width=5, arrow="first",
+										 arrowshape=(20, 20, 10))
+			else:
+				world.canvas.create_oval(x1 - 5, y1 - 5, x1 + 5, y1 + 5, fill="green", tags="attack")
 
 
-	def render_measurement_basis(self, world, x, y, click_callback):
+	def render_measurement_basis(self, world, x, y, click_callback, basis, second=False):
 		label = f"basis-{str(uuid.uuid4())}"
-		size = 18 if self.selected else 15
-		width = 3 if self.selected else 2
+		size = 18 if (self.selected_basis_2 if second else self.selected_basis_1) == basis else 15
+		width = 3 if (self.selected_basis_2 if second else self.selected_basis_1) == basis else 2
 
 		world.canvas.create_rectangle(x - size, y - size, x + size, y + size, outline="black", fill="white",
-									  tags=("basis", label), width=width)
-		world.canvas.create_text(x, y, text=f"{self.basis}", font=("Helvetica", 18, "bold"), fill="black",
-								 tags=("basis", label + "-text"))
-		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(self))
-		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(self))
+									  tags=("attack", label), width=width)
+		world.canvas.create_text(x, y, text=f"{basis}", font=("Helvetica", 18, "bold"), fill="black",
+								 tags=("attack", label + "-text"))
+		basis_string = basis + ("2" if second else "1")
+		world.canvas.tag_bind(label, "<Button-1>", lambda e: click_callback(basis_string))
+		world.canvas.tag_bind(label + "-text", "<Button-1>", lambda e: click_callback(basis_string))
 
+	def render(self, world, x, y, click_callback):
+		attack_basis = ["X", "Y", "Z"]
+		world.canvas.delete("attack")
+		self.render_attack_arrow(world)
 
-	def set_selected(self, selected):
-		self.selected = selected
+		if self.country1 != "" and self.country2 != "":
+			world.canvas.create_text(x + 40, y - 40, text="Attacker Basis", font=("Helvetica", 12, "bold"),
+									 fill="black", tags="attack")
+			world.canvas.create_text(x + 40, y + 40, text="Defender Basis", font=("Helvetica", 12, "bold"),
+									 fill="black", tags="attack")
+			for i, basis in enumerate(attack_basis):
+				self.render_measurement_basis(world, x + i*40, y, click_callback, basis, False)
+				self.render_measurement_basis(world, x + i * 40, y + 80, click_callback, basis, True)
+		world.root.update()
+
 
 
 	def __str__(self, ):
-		return f"Attack ({self.basis} basis): {self.country1}({self.qubit1}) --> {self.country2}({self.qubit2})"
+		return f"Attack ({self.selected_basis_1} | {self.selected_basis_2}): {self.country1}({self.qubit1}) --> {self.country2}({self.qubit2})"
 
 class TroopSwap:
 	def __init__(self):
