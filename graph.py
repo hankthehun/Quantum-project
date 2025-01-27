@@ -5,10 +5,9 @@ from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from qiskit import QuantumCircuit, transpile
 from qiskit_aer import AerSimulator
-
+import itertools
 from qiskit.quantum_info import Statevector, partial_trace, DensityMatrix
-from qiskit.visualization import plot_bloch_vector
-
+from qiskit.visualization import plot_bloch_vector, plot_state_qsphere
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
@@ -197,108 +196,58 @@ class World:
 
 				self.canvas.create_line(x1, y1, x2, y2, fill="lightblue", width=2, dash=(5, 5), tags="entanglement")
 
-	def calculate_entangled_bloch_vector(self, t1, t2):
+
+
+	def approximate_state_vector(self, qubit1, qubit2):
+		"""Approximate the state vector of two qubits."""
 		circ = self.get_circuit().qc
-		qc = circ.copy()  # Copy the circuit
-		simulator = AerSimulator()  # Use Qiskit AerSimulator for efficiency
+		qc = circ.copy()
+		simulator = AerSimulator()
 		shots = 2000
-		def measure_in_basis(qc, basis):
-			# simulator = Aer.get_backend('aer_simulator')
+		def measure(qc, qubits):
+			new_qc = qc.copy()
+			new_qc.measure(qubits, qubits)
+			return new_qc
 
-			# Copy circuit to maintain register structure
-			qc_meas = qc.copy()
+		# Measure the qubits
+		circ = measure(qc, [qubit1, qubit2])
+		result = simulator.run(circ, shots=shots).result().get_counts()
+		# Compute expectation values
+		def find_coeffs(qubit1, qubit2, counts):
+			number = self.get_qubit_amount()
+			coeff00 = 0
+			coeff01 = 0
+			coeff10 = 0
+			coeff11 = 0
+			for outcome, count in counts.items():
+				qubit_1_outcome = int(outcome[number - qubit1 - 1])  # First qubit's measurement outcome
+				qubit_2_outcome = int(outcome[number - qubit2 - 1])  # Second qubit's measurement outcome
+				if (qubit_1_outcome, qubit_2_outcome) == (0,0):
+					coeff00 = count / shots
+				elif (qubit_1_outcome, qubit_2_outcome) == (0,1):
+					coeff01 = count / shots
+				elif (qubit_1_outcome, qubit_2_outcome) == (1,0):
+					coeff10 = count / shots
+				elif (qubit_1_outcome, qubit_2_outcome) == (1,1):
+					coeff11 = count / shots
+			return np.sqrt([coeff00, coeff01, coeff10, coeff11])
+		vector = find_coeffs(qubit1, qubit2, result)
+		matrix = np.outer(vector, vector)
+		# print(matrix)
+		# Approximate the state vector
+		# vector = np.zeros(4, dtype=np.complex128)
+		# for i, vec in enumerate(vectors):
+		# 	vector += vec
+		# vector /= len(vectors)
+		return DensityMatrix(matrix)
 
-			# Apply basis change if needed
-			if basis == 'X':
-				qc_meas.h([t1, t2])  # Hadamard for X-basis measurement
-			elif basis == 'Y':
-				qc_meas.sdg([t1, t2])  # S† gate
-				qc_meas.h([t1, t2])    # Hadamard
+	def visualize_bloch_spheres(self, rho):
+		bloch_sphere = plot_bloch_multivector(rho)
+		plt.figure(figsize=(6, 6))
+		plt.imshow(bloch_sphere)
+		plt.axis('off')
+		plt.show()
 
-			qc_meas.measure([t1,t2], [t1,t2])
-			result = simulator.run(qc_meas, shots=shots).result()
-			# counts = result_y.get_counts()
-
-			# # Add classical bits for measurement
-			# num_clbits = qc_meas.num_clbits
-			# if num_clbits < max(t1, t2) + 1:  # Expand classical register if necessary
-			# 	qc_meas.add_register(ClassicalRegister(max(t1, t2) + 1 - num_clbits))
-
-			# # Measure only the target qubits
-			# qc_meas.measure(t1, t1)
-			# qc_meas.measure(t2, t2)
-			# # Transpile and execute
-			# qc_meas = transpile(qc_meas, simulator)
-			# result = simulator.run(qc_meas, shots=shots).result()
-
-			return result.get_counts()
-		number = self.get_qubit_amount()
-		# Measure in Z, X, and Y bases
-		counts_z_raw = measure_in_basis(qc, 'Z')
-		counts_x_raw = measure_in_basis(qc, 'X')
-		counts_y_raw = measure_in_basis(qc, 'Y')
-		s1 = number - t1 - 1
-		s2 = number - t2 - 1
-
-		def reduce_map(counts_raw, s1, s2):
-			counts = {}
-			for key in counts_raw:
-				if key[s1] == "0" and key[s2] == "0":
-					counts["00"] = counts_raw[key]
-				elif key[s1] == "0" and key[s2] == "1":
-					counts["01"] = counts_raw[key]
-				elif key[s1] == "1" and key[s2] == "0":
-					counts["10"] = counts_raw[key]
-				elif key[s1] == "1" and key[s2] == "1":
-					counts["11"] = counts_raw[key]
-
-			return counts
-
-		counts_z = reduce_map(counts_z_raw, s1, s2)
-		counts_x = reduce_map(counts_x_raw, s1, s2)
-		counts_y = reduce_map(counts_y_raw, s1, s2)
-		# Estimate probabilities from counts
-		def get_probabilities(counts):
-			probs = {key: counts.get(key, 0) / shots for key in ['00', '01', '10', '11']}
-			return np.array([probs['00'], probs['01'], probs['10'], probs['11']])
-
-		p_z = get_probabilities(counts_z)
-		p_x = get_probabilities(counts_x)
-		p_y = get_probabilities(counts_y)
-
-		# Compute Bell coefficients using probability overlaps
-		bell_coeffs = np.array([
-			(p_z[0] + p_z[3] + p_x[0] - p_x[3]) / 2,  # |Φ+⟩ coefficient
-			(p_z[0] + p_z[3] - p_x[0] + p_x[3]) / 2,  # |Φ-⟩ coefficient
-			(p_z[1] + p_z[2] + p_x[1] - p_x[2]) / 2,  # |Ψ+⟩ coefficient
-			(p_z[1] + p_z[2] - p_x[1] + p_x[2]) / 2   # |Ψ-⟩ coefficient
-		])
-		return bell_coeffs
-
-	def plot_bell_vector(self, bell_coeffs, ax):
-		"""Plot the Bell basis representation as a 3D vector on the given axis."""
-		# Extract coefficients
-		c1, c2, c3, c4 = bell_coeffs
-		x = 2 * (np.real(c3 * np.conj(c1)) + np.real(c4 * np.conj(c2)))
-		y = 2 * (np.imag(c3 * np.conj(c1)) + np.imag(c4 * np.conj(c2)))
-		z = abs(c1)**2 - abs(c2)**2 + abs(c3)**2 - abs(c4)**2
-
-		# Create Bloch sphere representation
-		u, v = np.mgrid[0:2*np.pi:50j, 0:np.pi:25j]
-		xs = np.cos(u) * np.sin(v)
-		ys = np.sin(u) * np.sin(v)
-		zs = np.cos(v)
-		ax.plot_surface(xs, ys, zs, color="c", alpha=0.2)
-
-		# Draw vector
-		ax.quiver(0, 0, 0, x, y, z, color="r", linewidth=2)
-		print(x, y, z)
-		# Labels
-		ax.set_xlabel("X (Real Part)")
-		ax.set_ylabel("Y (Imaginary Part)")
-		ax.set_zlabel("Z (Probability Difference)")
-		ax.set_title("Bell Basis Representation")
-		# plt.show()
 
 	def show_bloch_sphere(self, country):
 		print(self.bloch_window)
@@ -335,10 +284,9 @@ class World:
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
 				# Calculate the entangled Bloch vector
-				entangled_bloch_vector = self.calculate_entangled_bloch_vector(qubit, self.get_circuit().entanglements[qubit])
-				print("Bell vector: ", entangled_bloch_vector)
-				self.plot_bell_vector(entangled_bloch_vector, ax=axes[i])
-				
+				rho = self.approximate_state_vector(qubit, self.get_circuit().entanglements[qubit])
+				print(rho)
+				fig = plot_state_qsphere(rho, show_state_phases = True, use_degrees = True)	
 
 		# Embed Matplotlib figure in Tkinter window
 		canvas = FigureCanvasTkAgg(fig, master=self.bloch_window)
