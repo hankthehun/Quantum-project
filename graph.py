@@ -204,11 +204,14 @@ class World:
 			x1, y1 = country.get_pos(self.size)
 			self.canvas.create_oval(x1 - size, y1 - size, x1 + size, y1 + size, fill="purple", outline="purple", tags="entanglement")
 
-	def generate_binary_strings(n):
-		"""Generate all binary strings of length n using NumPy."""
-		num_values = 2**n  # Total number of binary strings
-		binary_matrix = np.unpackbits(np.arange(num_values, dtype=np.uint8)[:, None], axis=1, count=n, bitorder='little')
-		return binary_matrix
+	def array_to_integer(self, a):
+		num = 0
+		for i in range(len(a)):
+			c = int(a[i])
+			w = len(a)-i-1
+			num += c*(2**w)
+			print(num)
+		return num
 
 	def calculate_density_matrix(self, qubits):
 		circ = self.get_circuit().qc
@@ -232,7 +235,8 @@ class World:
 			coeffs = np.zeros(2**n_entanglement)
 			for outcome, count in counts.items():
 				qubit_outcomes = np.array([int(outcome[number - qubit - 1]) for qubit in qubits])
-				index = np.packbits(qubit_outcomes, bitorder='big').view(np.uint8)[-1]
+				print(qubit_outcomes)
+				index = self.array_to_integer(qubit_outcomes)
 				print(index)
 				coeffs[index] = count / shots
 
