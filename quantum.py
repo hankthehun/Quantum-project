@@ -10,6 +10,8 @@ class GameCircuit:
     def __init__(self, qubits):
         self.size = qubits
         self.qc = QuantumCircuit(qubits, qubits)
+        for q in range(qubits): # Initialize the qubits to |1⟩
+            self.qc.x(q)
         self.entanglements = nx.Graph()
         self.entanglements.add_nodes_from(range(qubits))
 
@@ -101,7 +103,7 @@ class GameCircuit:
             if basis == 'X':
                 self.qc.h(qubit)  # Rotate to Z basis
             elif basis == 'Y':
-                self.qc.sdg(qubit)  # Rotate to X basis
+                self.qc.s(qubit)  # Rotate to X basis
                 self.qc.h(qubit)  # Rotate to Z basis
             elif basis != 'Z':
                 raise ValueError("Basis must be 'X', 'Y', or 'Z'")
@@ -122,13 +124,13 @@ class GameCircuit:
             measurement_result = int(list(counts.keys())[0][self.size - i - 1])  # '0' or '1'
 
             # Convert to +1 or -1
-            observable = measurement_result * 2 - 1
+            observable = 1 if measurement_result == 0 else -1
             if qubit == qubit_index:
                 return_value = observable
 
-            # Set the qubit to |0⟩ if observable is -1, else |1⟩
+            # Set the qubit to |0⟩ if observable is +1, else |1⟩
             self.qc.reset(qubit)
-            if observable == +1:
+            if observable == -1:
                 self.qc.x(qubit)
 
             # Move the state back to the corresponding basis
@@ -136,6 +138,6 @@ class GameCircuit:
                 self.qc.h(qubit)  # Rotate to X basis
             elif basis == 'Y':
                 self.qc.h(qubit)  # Rotate to X basis
-                self.qc.s(qubit)  # Rotate to Y basis
+                self.qc.sdg(qubit)  # Rotate to Y basis
 
         return return_value
