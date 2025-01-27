@@ -189,7 +189,7 @@ class World:
 		for q in self.get_selected_country().qubits:
 			entangled_qubits = entangled_qubits + self.circuit.get_entangled_qubits(q)
 
-		if len(entangled_qubits) < 2:
+		if len(entangled_qubits) <= len(self.get_selected_country().qubits):
 			return
 
 		for q in entangled_qubits:
@@ -203,13 +203,13 @@ class World:
 			x1, y1 = country.get_pos(self.size)
 			self.canvas.create_oval(x1 - size, y1 - size, x1 + size, y1 + size, fill="purple", outline="purple", tags="entanglement")
 
+
 	def calculate_entangled_bloch_vector(self, t1, t2):
 		circ = self.get_circuit().qc
 		qc = circ.copy()  # Copy the circuit
 		simulator = AerSimulator()  # Use Qiskit AerSimulator for efficiency
 		shots = 2000
 		def measure_in_basis(qc, basis):
-			# simulator = Aer.get_backend('aer_simulator')
 
 			# Copy circuit to maintain register structure
 			qc_meas = qc.copy()
@@ -223,21 +223,8 @@ class World:
 
 			qc_meas.measure([t1,t2], [t1,t2])
 			result = simulator.run(qc_meas, shots=shots).result()
-			# counts = result_y.get_counts()
-
-			# # Add classical bits for measurement
-			# num_clbits = qc_meas.num_clbits
-			# if num_clbits < max(t1, t2) + 1:  # Expand classical register if necessary
-			# 	qc_meas.add_register(ClassicalRegister(max(t1, t2) + 1 - num_clbits))
-
-			# # Measure only the target qubits
-			# qc_meas.measure(t1, t1)
-			# qc_meas.measure(t2, t2)
-			# # Transpile and execute
-			# qc_meas = transpile(qc_meas, simulator)
-			# result = simulator.run(qc_meas, shots=shots).result()
-
 			return result.get_counts()
+
 		number = self.get_qubit_amount()
 		# Measure in Z, X, and Y bases
 		counts_z_raw = measure_in_basis(qc, 'Z')
@@ -335,7 +322,8 @@ class World:
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
 				# Calculate the entangled Bloch vector
-				entangled_bloch_vector = self.calculate_entangled_bloch_vector(entanglements[0], entanglements[1])
+				entangled_qubit = entanglements[1] if entanglements[0] == qubit else entanglements[0]
+				entangled_bloch_vector = self.calculate_entangled_bloch_vector(qubit, entangled_qubit)
 				self.plot_bell_vector(entangled_bloch_vector, ax=axes[i])
 				
 
@@ -520,10 +508,10 @@ def load_world(filename):
 				country_graph.add_edge(country1.strip(), country2.strip())
 
 			else:						# in countries section, add the country to the graph
-				name, qubits_amount, continent, x, y = line.split(", ")
+				name, qubits_amount, continent, x, y, owner = line.split(", ")
 				qubits = [i + current_qubit_index for i in range(int(qubits_amount))]
 				current_qubit_index = current_qubit_index + int(qubits_amount)
-				country_graph.add_node(name, country=Country(name, qubits, continent, float(x), float(y)))
+				country_graph.add_node(name, country=Country(name, qubits, continent, float(x), float(y), int(owner)))
 
 				if continent not in continents_dict:	# create continent if it does not exist yet
 					continents_dict[continent] = Continent(continent)

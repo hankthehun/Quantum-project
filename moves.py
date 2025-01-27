@@ -78,7 +78,7 @@ class AttackingMove:
 	def select_country(self, world, country):
 		if self.country1 == "":
 			if world.get_country(country).lost_battle:
-				world.show_temporary_message("This country already lost a battle,"
+				world.show_temporary_message("This country already fought a battle,"
 											 " select a new country", "red", 2000)
 				return False
 			if world.is_neighbor_with_opponent(country):
