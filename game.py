@@ -173,6 +173,12 @@ class GameInstance:
         self.world.allow_selection(False)
         self.world.render()
         self.hide_attack_window()
+
+        if len(self.world.get_all_possessions(self.current_player%2 + 1)) == 0:
+            self.execute_later(exit, 3500)
+            self.world.show_temporary_message(f"Player {self.current_player} won the game!", "green", 3000)
+            return
+
         self.attack_phase()
 
 
