@@ -204,7 +204,13 @@ class World:
 			x1, y1 = country.get_pos(self.size)
 			self.canvas.create_oval(x1 - size, y1 - size, x1 + size, y1 + size, fill="purple", outline="purple", tags="entanglement")
 
-	def calculate_density_matrix(self, qubit1, qubit2):
+	def generate_binary_strings(n):
+		"""Generate all binary strings of length n using NumPy."""
+		num_values = 2**n  # Total number of binary strings
+		binary_matrix = np.unpackbits(np.arange(num_values, dtype=np.uint8)[:, None], axis=1, count=n, bitorder='little')
+		return binary_matrix
+
+	def calculate_density_matrix(self, qubits):
 		circ = self.get_circuit().qc
 		qc = circ.copy()
 		simulator = AerSimulator()
@@ -215,28 +221,32 @@ class World:
 			return new_qc
 
 		# Measure the qubits
-		circ = measure(qc, [qubit1, qubit2])
+		circ = measure(qc, qubits)
 		result = simulator.run(circ, shots=shots).result().get_counts()
 		# Compute expectation values
-		def find_coeffs(qubit1, qubit2, counts):
+		n_entanglement = len(qubits)
+		# combinations = generate_binary_strings(n_entanglement)
+		# print(combinations)
+		def find_coeffs(qubits, counts):
 			number = self.get_qubit_amount()
-			coeff00 = 0
-			coeff01 = 0
-			coeff10 = 0
-			coeff11 = 0
+			coeffs = np.zeros(2**n_entanglement)
 			for outcome, count in counts.items():
-				qubit_1_outcome = int(outcome[number - qubit1 - 1])  # First qubit's measurement outcome
-				qubit_2_outcome = int(outcome[number - qubit2 - 1])  # Second qubit's measurement outcome
-				if (qubit_1_outcome, qubit_2_outcome) == (0,0):
-					coeff00 = count / shots
-				elif (qubit_1_outcome, qubit_2_outcome) == (0,1):
-					coeff01 = count / shots
-				elif (qubit_1_outcome, qubit_2_outcome) == (1,0):
-					coeff10 = count / shots
-				elif (qubit_1_outcome, qubit_2_outcome) == (1,1):
-					coeff11 = count / shots
-			return np.sqrt([coeff00, coeff01, coeff10, coeff11])
-		vector = find_coeffs(qubit1, qubit2, result)
+				qubit_outcomes = np.array([int(outcome[number - qubit - 1]) for qubit in qubits])
+				index = np.packbits(qubit_outcomes, bitorder='big').view(np.uint8)[-1]
+				print(index)
+				coeffs[index] = count / shots
+
+				# if (qubit_1_outcome, qubit_2_outcome) == (0,0):
+				# 	coeff00 = count / shots
+				# elif (qubit_1_outcome, qubit_2_outcome) == (0,1):
+				# 	coeff01 = count / shots
+				# elif (qubit_1_outcome, qubit_2_outcome) == (1,0):
+				# 	coeff10 = count / shots
+				# elif (qubit_1_outcome, qubit_2_outcome) == (1,1):
+				# 	coeff11 = count / shots
+			return np.sqrt(coeffs)
+		vector = find_coeffs(qubits, result)
+		print(vector)
 		matrix = np.outer(vector, vector)
 		# print(matrix)
 		# Approximate the state vector
@@ -284,7 +294,8 @@ class World:
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
 				# Calculate the entangled Bloch vector
-				rho = self.calculate_density_matrix(qubit, self.get_circuit().get_entangled_qubits(qubit)[0])
+				entanglement_indices = self.get_circuit().get_entangled_qubits(qubit)
+				rho = self.calculate_density_matrix(entanglement_indices)
 				print(rho)
 				fig = plot_state_qsphere(rho, show_state_phases = True, use_degrees = True)
 
