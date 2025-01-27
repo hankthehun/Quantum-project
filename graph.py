@@ -191,7 +191,7 @@ class World:
 		for q in self.get_selected_country().qubits:
 			entangled_qubits = entangled_qubits + self.circuit.get_entangled_qubits(q)
 
-		if len(entangled_qubits) < 2:
+		if len(entangled_qubits) <= len(self.get_selected_country().qubits):
 			return
 
 		for q in entangled_qubits:
@@ -284,10 +284,10 @@ class World:
 				bloch_vector = self.estimate_bloch_vector_for_qubit(qubit)
 				plot_bloch_vector(bloch_vector, ax=axes[i])
 			else:
-				# Calculate the entangled Bloch vector				
+				# Calculate the entangled Bloch vector
 				rho = self.calculate_density_matrix(qubit, self.get_circuit().get_entangled_qubits(qubit)[0])
 				print(rho)
-				fig = plot_state_qsphere(rho, show_state_phases = True, use_degrees = True)	
+				fig = plot_state_qsphere(rho, show_state_phases = True, use_degrees = True)
 
 		# Embed Matplotlib figure in Tkinter window
 		canvas = FigureCanvasTkAgg(fig, master=self.bloch_window)
@@ -470,10 +470,10 @@ def load_world(filename):
 				country_graph.add_edge(country1.strip(), country2.strip())
 
 			else:						# in countries section, add the country to the graph
-				name, qubits_amount, continent, x, y = line.split(", ")
+				name, qubits_amount, continent, x, y, owner = line.split(", ")
 				qubits = [i + current_qubit_index for i in range(int(qubits_amount))]
 				current_qubit_index = current_qubit_index + int(qubits_amount)
-				country_graph.add_node(name, country=Country(name, qubits, continent, float(x), float(y)))
+				country_graph.add_node(name, country=Country(name, qubits, continent, float(x), float(y), int(owner)))
 
 				if continent not in continents_dict:	# create continent if it does not exist yet
 					continents_dict[continent] = Continent(continent)
