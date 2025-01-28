@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image, ImageTk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from qiskit.quantum_info import DensityMatrix
+from qiskit.result import marginal_counts
 from qiskit.visualization import plot_bloch_vector, plot_state_qsphere, plot_bloch_multivector
 from qiskit_aer import AerSimulator
 
@@ -169,7 +170,6 @@ class World:
 		z_avg = -(counts_z.get(respos, 0) - counts_z.get(res, 0)) / N
 		# Approximate Bloch vector (x_avg, y_avg, z_avg) for the qubit at index t
 		bloch_vector = np.array([x_avg, y_avg, z_avg])
-		# print(f"Bloch vector for qubit {t}: {bloch_vector}")
 		return bloch_vector
 
 	def render_entanglement_circles(self):
@@ -210,55 +210,81 @@ class World:
 			c = int(a[i])
 			w = len(a)-i-1
 			num += c*(2**w)
-			print(num)
 		return num
 
-	def calculate_density_matrix(self, qubits):
-		circ = self.get_circuit().qc
-		qc = circ.copy()
+	def measure_partial_state(self, circuit, qubit_indices, shots = 1024):
+		"""
+        Measures the state vector of specified qubits in a large quantum circuit using measurements
+        in the Z, X, and Y bases to extract amplitude and phase information.
+
+        Parameters:
+            circuit (QuantumCircuit): The quantum circuit to be measured.
+            qubit_indices (list): The list of qubit indices to measure.
+            shots (int): The number of measurement shots to perform.
+
+        Returns:
+            dict: A dictionary with binary strings as keys (representing states) and complex
+                  amplitudes as values.
+        """
+
+		def measure_in_basis(circuit, qubit_indices, basis):
+			"""
+            Modify the circuit to measure qubits in a specific basis (X, Y, or Z).
+
+            Parameters:
+                circuit (QuantumCircuit): The circuit to modify.
+                qubit_indices (list): The list of qubits to measure.
+                basis (str): The basis to measure in ('X', 'Y', or 'Z').
+
+            Returns:
+                QuantumCircuit: The modified circuit with measurements in the specified basis.
+            """
+			new_circuit = circuit.copy()
+
+			for qubit in qubit_indices:
+				if basis == 'X':
+					new_circuit.h(qubit)
+				elif basis == 'Y':
+					new_circuit.sdg(qubit)
+					new_circuit.h(qubit)
+
+			new_circuit.measure(qubit_indices, qubit_indices)
+			return new_circuit
+
+		# Simulate measurements in Z, X, and Y bases
 		simulator = AerSimulator()
-		shots = 2000
-		def measure(qc, qubits):
-			new_qc = qc.copy()
-			new_qc.measure(qubits, qubits)
-			return new_qc
+		results = {}
+		for basis in ['Z', 'X', 'Y']:
+			measured_circuit = measure_in_basis(circuit, qubit_indices, basis)
+			result = simulator.run(measured_circuit, shots=shots).result()
+			results[basis] = marginal_counts(result.get_counts(), qubit_indices)
 
-		# Measure the qubits
-		circ = measure(qc, qubits)
-		result = simulator.run(circ, shots=shots).result().get_counts()
-		# Compute expectation values
-		n_entanglement = len(qubits)
-		# combinations = generate_binary_strings(n_entanglement)
-		# print(combinations)
-		def find_coeffs(qubits, counts):
-			number = self.get_qubit_amount()
-			coeffs = np.zeros(2**n_entanglement)
-			for outcome, count in counts.items():
-				qubit_outcomes = np.array([int(outcome[number - qubit - 1]) for qubit in qubits])
-				print(qubit_outcomes)
-				index = self.array_to_integer(qubit_outcomes)
-				print(index)
-				coeffs[index] = count / shots
+		# Compute probabilities for Z, X, and Y bases
+		probabilities = {}
+		for basis, counts in results.items():
+			total_counts = sum(counts.values())
+			probabilities[basis] = {
+				state: count / total_counts for state, count in counts.items()
+			}
 
-				# if (qubit_1_outcome, qubit_2_outcome) == (0,0):
-				# 	coeff00 = count / shots
-				# elif (qubit_1_outcome, qubit_2_outcome) == (0,1):
-				# 	coeff01 = count / shots
-				# elif (qubit_1_outcome, qubit_2_outcome) == (1,0):
-				# 	coeff10 = count / shots
-				# elif (qubit_1_outcome, qubit_2_outcome) == (1,1):
-				# 	coeff11 = count / shots
-			return np.sqrt(coeffs)
-		vector = find_coeffs(qubits, result)
-		print(vector)
-		matrix = np.outer(vector, vector)
-		# print(matrix)
-		# Approximate the state vector
-		# vector = np.zeros(4, dtype=np.complex128)
-		# for i, vec in enumerate(vectors):
-		# 	vector += vec
-		# vector /= len(vectors)
-		return DensityMatrix(matrix)
+		# Reconstruct the state vector
+		state_vector = [0 for i in range(2 ** len(qubit_indices))]
+		total_states = len(state_vector)
+		for i in range(total_states):
+			binary_state = format(i, f'0{len(qubit_indices)}b')
+
+			# Amplitude calculation from Z basis
+			amplitude = np.sqrt(probabilities['Z'].get(binary_state, 0))
+
+			# Phase calculation using X and Y basis measurements
+			px = probabilities['X'].get(binary_state, 0)
+			py = probabilities['Y'].get(binary_state, 0)
+			phase = np.arctan2(py, px) if px or py else 0
+
+			# Combine amplitude and phase
+			state_vector[i] = amplitude * np.exp(1j * phase)
+
+		return state_vector
 
 	def visualize_bloch_spheres(self, rho):
 		bloch_sphere = plot_bloch_multivector(rho)
@@ -282,7 +308,6 @@ class World:
 
 		# Create Matplotlib figure and axes
 		fig = plt.figure(figsize=(4*len(country.qubits), 4))
-		# print(len(country.qubits))
 		axes = []
 		for i in range(len(country.qubits)):
 			ax = fig.add_subplot(1, len(country.qubits), i + 1, projection="3d")
@@ -299,9 +324,8 @@ class World:
 			else:
 				# Calculate the entangled Bloch vector
 				entanglement_indices = self.get_circuit().get_entangled_qubits(qubit)
-				rho = self.calculate_density_matrix(entanglement_indices)
-				print(rho)
-				fig = plot_state_qsphere(rho, show_state_phases = True, use_degrees = True)
+				vector = self.measure_partial_state(self.get_circuit().qc, entanglement_indices)
+				fig = plot_state_qsphere(DensityMatrix(np.outer(vector, vector)), show_state_phases = True, use_degrees = False)
 
 		# Embed Matplotlib figure in Tkinter window
 		canvas = FigureCanvasTkAgg(fig, master=self.bloch_window)
