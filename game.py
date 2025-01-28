@@ -136,7 +136,7 @@ class GameInstance:
             country2 = self.world.get_country(move.country2)
             self.circuit.apply_double_gate(move.gate, country2.qubits[move.qubit2], country1.qubits[move.qubit1])
 
-        self.current_moves.remove(move)
+        # self.current_moves.remove(move)
         self.selected_move = None
         self.world.allow_selection(False)
         self.world.render()
